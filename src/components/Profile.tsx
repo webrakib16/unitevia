@@ -99,12 +99,13 @@ export function Profile({ user }: ProfileProps) {
   return (
     <div className="relative flex items-center gap-3" ref={containerRef}>
       {/* ── 1. Avatar & Chevron Trigger ── */}
-      <div className="relative">
+      <div className="relative group/avatar">
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
-          aria-label="Toggle profile menu"
+          aria-label={`Toggle profile menu for ${displayName}`}
+          title={displayName}
           className="group flex items-center gap-1.5 focus:outline-none"
         >
           {/* Avatar with glowing green ring */}
@@ -125,6 +126,14 @@ export function Profile({ user }: ProfileProps) {
             <ChevronDown className="size-4 text-white transition-transform" />
           )}
         </button>
+
+        {/* ── Hover Display Name Tooltip (Requirement: On hovering over profile picture, show display name) ── */}
+        {!isOpen && (
+          <div className="pointer-events-none absolute -bottom-9 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap rounded-lg border border-emerald-500/30 bg-[#061e12]/95 px-2.5 py-1 text-xs font-semibold text-emerald-300 opacity-0 shadow-[0_4px_16px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all duration-150 group-hover/avatar:opacity-100 group-hover/avatar:translate-y-0.5">
+            {displayName}
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 size-2 rotate-45 border-l border-t border-emerald-500/30 bg-[#061e12]" />
+          </div>
+        )}
 
         {/* ── 2. Dropdown Menu Card ── */}
         {isOpen && (

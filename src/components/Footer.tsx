@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ChevronRight, Mail } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 
@@ -41,7 +42,12 @@ function GithubIcon() {
 }
 
 export function Footer() {
+  const pathname = usePathname();
   const [email, setEmail] = useState("");
+
+  if (pathname === "/sign-up" || pathname === "/login") {
+    return null;
+  }
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();

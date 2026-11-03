@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/toast";
+import { authClient } from "@/lib/auth-client";
 import {
   CalendarDays,
   CalendarPlus,
@@ -177,6 +179,9 @@ const GUIDELINE_ITEMS = [
 ];
 
 export default function AddEventPage() {
+  const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
+
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -191,6 +196,22 @@ export default function AddEventPage() {
   const [dateError, setDateError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Private route guard: Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!isPending) {
+      const hasLocalUser =
+        typeof window !== "undefined" && !!localStorage.getItem("unitevia_user");
+      if (!session?.user && !hasLocalUser) {
+        toast.add({
+          title: "Access Restricted",
+          description: "Please sign in or sign up to create a community event.",
+          type: "error",
+        });
+        router.replace("/login");
+      }
+    }
+  }, [isPending, session, router]);
 
   // Current local time calculations for restricting past selections
   const now = new Date();
@@ -284,6 +305,23 @@ export default function AddEventPage() {
       });
     }
   };
+
+  if (isPending) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#031109] text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-10 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+          <p className="text-xs text-neutral-400">Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const hasLocal =
+    typeof window !== "undefined" && !!localStorage.getItem("unitevia_user");
+  if (!session?.user && !hasLocal) {
+    return null;
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#031109] text-white">
