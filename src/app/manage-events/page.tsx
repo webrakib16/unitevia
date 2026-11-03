@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 import {
   ArrowUpDown,
   Calendar,
@@ -138,6 +140,9 @@ function CategoryBadge({ category }: { category: string }) {
 }
 
 export default function ManageEventsPage() {
+  const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
+
   const [events, setEvents] = useState<EventItem[]>(INITIAL_DEMO_EVENTS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
@@ -148,6 +153,22 @@ export default function ManageEventsPage() {
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [deletingEvent, setDeletingEvent] = useState<EventItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Private route guard: Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!isPending) {
+      const hasLocalUser =
+        typeof window !== "undefined" && !!localStorage.getItem("unitevia_user");
+      if (!session?.user && !hasLocalUser) {
+        toast.add({
+          title: "Access Restricted",
+          description: "Please sign in or sign up to view and manage your events.",
+          type: "error",
+        });
+        router.replace("/login");
+      }
+    }
+  }, [isPending, session, router]);
 
   // Fetch live backend events
   useEffect(() => {
@@ -307,6 +328,23 @@ export default function ManageEventsPage() {
     setEvents((prev) => prev.filter((ev) => ev.id !== deletingEvent.id));
     setDeletingEvent(null);
   };
+
+  if (isPending) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#031109] text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-10 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+          <p className="text-xs text-neutral-400">Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const hasLocal =
+    typeof window !== "undefined" && !!localStorage.getItem("unitevia_user");
+  if (!session?.user && !hasLocal) {
+    return null;
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#031109] text-white selection:bg-emerald-500 selection:text-black">

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
 import { Eye, EyeOff, Lock, LogIn, Mail } from "lucide-react";
@@ -27,14 +27,24 @@ export default function LoginPage() {
         email: string;
         password: string;
     };
-    const {data,error} = await authClient.signIn.email({
-        ...user,
+    const { data, error } = await authClient.signIn.email({
+      ...user,
     });
-    if(data) {
-        redirect("/");
+    if (data) {
+      if (typeof window !== "undefined" && data.user) {
+        localStorage.setItem("unitevia_user", JSON.stringify(data.user));
+      }
+
+      toast.add({
+        title: "Welcome Back!",
+        description: "Successfully logged in.",
+        type: "success",
+      });
+      router.push("/");
+      return;
     }
-    if(error) {
-        console.log(error);
+    if (error) {
+      console.log(error);
     }
 
     // Validation for empty fields
@@ -64,6 +74,10 @@ export default function LoginPage() {
         });
         setLoading(false);
         return;
+      }
+
+      if (res?.data?.user && typeof window !== "undefined") {
+        localStorage.setItem("unitevia_user", JSON.stringify(res.data.user));
       }
 
       toast.add({

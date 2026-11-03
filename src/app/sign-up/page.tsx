@@ -22,11 +22,7 @@ import {
   Users,
 } from "lucide-react";
 
-
 export default function SignUpPage() {
-
-    
-
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -42,42 +38,9 @@ export default function SignUpPage() {
   const hasMinLength = password.length >= 6;
   const isPasswordValid = hasUppercase && hasLowercase && hasMinLength;
 
-  const handleGoogleSignUp = async () => {
-    const data = await authClient.signIn.social({
-      provider: "google",
-    });
-    console.log("Google sign-up data:", data);
-  }
-
-//   Handle form submission
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    
-    // Log the form data for debugging
-    const formData = new FormData(e.target);
-    const user = Object.fromEntries(formData.entries()) as {
-        name: string;
-        email: string;
-        photoUrl: string;
-        password: string;
-    };
-    console.log("Form Data:", user);
-
-    const {data, error} = await authClient.signUp.email({
-        ...user,
-    });
-
-    if(data) {
-        console.log("Sign Up Successful:", data);
-    }
-    if(error) {
-        console.error("Sign Up Error:", error);
-    };
-
-    
-    
-    // Check password validity before proceeding
     if (!isPasswordValid) {
       toast.add({
         title: "Weak Password",
@@ -107,9 +70,13 @@ export default function SignUpPage() {
         return;
       }
 
+      if (res?.data?.user && typeof window !== "undefined") {
+        localStorage.setItem("unitevia_user", JSON.stringify(res.data.user));
+      }
+
       toast.add({
         title: "Account Created Successfully!",
-        description: `Welcome to Unitevia, ${name}! `,
+        description: `Welcome to Unitevia, ${name}! Redirecting...`,
         type: "success",
       });
 
@@ -427,7 +394,6 @@ export default function SignUpPage() {
 
                 {/* 8. Continue with Google Button (UI design only) */}
                 <button
-                  onClick={handleGoogleSignUp}
                   type="button"
                   className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-emerald-500/30 bg-[#051c11]/80 text-sm font-medium text-white shadow-sm transition hover:border-emerald-400 hover:bg-[#08291a] active:scale-95"
                 >

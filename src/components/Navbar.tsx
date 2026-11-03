@@ -1,15 +1,38 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, LogIn, Moon } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { Profile, type ProfileUser } from "@/components/Profile";
 
 export function Navbar() {
   // Get the current session user using the authClient
   const { data: session } = authClient.useSession();
-  const user = session?.user;
+  const [localUser, setLocalUser] = useState<ProfileUser | null>(null);
+
+  useEffect(() => {
+    const syncUser = () => {
+      try {
+        const stored = localStorage.getItem("unitevia_user");
+        if (stored) {
+          setLocalUser(JSON.parse(stored));
+        } else {
+          setLocalUser(null);
+        }
+      } catch {
+        setLocalUser(null);
+      }
+    };
+
+    syncUser();
+    window.addEventListener("storage", syncUser);
+    return () => window.removeEventListener("storage", syncUser);
+  }, []);
+
+  const user = session?.user || localUser;
   console.log("Navbar session user:", user);
 
   const pathname = usePathname();
@@ -46,18 +69,17 @@ export function Navbar() {
         {/* Center action */}
         <Link
           href="/upcoming-events"
-          className={`hidden items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition md:inline-flex md:px-5 ${
-            isUpcomingActive
+          className={`hidden items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition md:inline-flex md:px-5 ${isUpcomingActive
               ? "border border-emerald-400/60 bg-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)]"
               : "border border-white/10 bg-white/[0.04] text-neutral-200 hover:bg-white/10"
-          }`}
+            }`}
         >
           <CalendarDays className="size-4 text-emerald-400" />
           Upcoming Events
         </Link>
 
         {/* Right actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
             aria-label="Toggle theme"
@@ -65,13 +87,18 @@ export function Navbar() {
           >
             <Moon className="size-5" />
           </button>
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] transition hover:brightness-110 sm:px-6"
-          >
-            <LogIn className="size-4" />
-            Login
-          </Link>
+
+          {user ? (
+            <Profile user={user} />
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] transition hover:brightness-110 sm:px-6"
+            >
+              <LogIn className="size-4" />
+              Login
+            </Link>
+          )}
         </div>
       </nav>
     </header>
