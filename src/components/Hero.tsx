@@ -310,7 +310,7 @@ export function Hero() {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(180deg,rgba(2,19,10,0)_0%,rgba(2,19,10,0.45)_50%,rgba(2,19,10,0.95)_100%)]" />
 
       {/* ── Main Content Container ── */}
-      <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-between px-5 pb-[160px] pt-7 sm:px-8 sm:pt-9 lg:px-10 lg:pb-[145px] lg:pt-11 xl:px-12">
+      <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-between px-4 pb-[160px] pt-7 sm:px-6 sm:pt-9 lg:px-8 lg:pb-[145px] lg:pt-11">
         <div className="max-w-[530px] lg:max-w-[580px]">
           {/* Main Heading */}
           <h1 className="text-[36px] font-extrabold leading-[0.95] tracking-[-0.035em] text-white sm:text-[48px] lg:text-[56px] xl:text-[64px]">
@@ -332,11 +332,11 @@ export function Hero() {
           </p>
 
           {/* CTA Buttons */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3.5">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3.5 lg:mt-9">
             {/* Primary button: solid mint-green pill with dark text and glow */}
             <Link
               href="/upcoming-events"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-6 text-[14px] font-semibold text-[#032014] shadow-[0_0_24px_rgba(0,217,154,0.35)] transition hover:brightness-110 sm:text-[14.5px]"
+              className="inline-flex min-h-[50px] items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-7 text-[14.5px] font-semibold text-[#032014] shadow-[0_0_24px_rgba(0,217,154,0.35)] transition hover:brightness-110 sm:text-[15px]"
             >
               Explore Upcoming Events
               <ArrowRight className="size-4 shrink-0" strokeWidth={2.5} />
@@ -344,7 +344,7 @@ export function Hero() {
             {/* Secondary button: dark-tinted pill with mint-green border */}
             <Link
               href="/create-event"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#00d99a]/60 bg-[#032014]/60 px-5 text-[14px] font-semibold text-white shadow-[0_0_15px_rgba(0,217,154,0.1)] transition hover:border-[#00d99a] hover:bg-[#032014]/90 sm:text-[14.5px]"
+              className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full border border-[#00d99a]/60 bg-[#032014]/60 px-6 text-[14.5px] font-semibold text-white shadow-[0_0_15px_rgba(0,217,154,0.1)] transition hover:border-[#00d99a] hover:bg-[#032014]/90 sm:text-[15px]"
             >
               <span className="flex size-[18px] items-center justify-center rounded-full border border-white/80">
                 <Plus className="size-2.5" strokeWidth={2.5} />
@@ -353,24 +353,24 @@ export function Hero() {
             </Link>
           </div>
 
-          {/* Impact Statistics — All 4 in ONE single horizontal row on desktop */}
-          <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-3 sm:gap-x-4 lg:flex-nowrap lg:gap-x-3.5 xl:gap-x-5">
+          {/* Impact Statistics */}
+          <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-4 sm:gap-x-5 lg:mt-12 lg:flex-nowrap lg:gap-x-5 xl:gap-x-6">
             {STATS.map(({ icon: Icon, value, label }, index) => (
-              <div key={label} className="flex items-center gap-2">
+              <div key={label} className="flex items-center gap-2.5">
                 {index > 0 && (
                   <span
-                    className="hidden h-6 w-px bg-white/15 lg:block shrink-0"
+                    className="hidden h-8 w-px bg-white/15 lg:block shrink-0"
                     aria-hidden="true"
                   />
                 )}
-                <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[9px] border border-[#00d99a]/50 bg-[#02180e]/80 text-[#00d99a] shadow-[0_0_10px_rgba(0,217,154,0.12)]">
-                  <Icon className="size-[17px]" strokeWidth={2} />
+                <span className="flex size-[40px] shrink-0 items-center justify-center rounded-xl border border-[#00d99a]/50 bg-[#02180e]/80 text-[#00d99a] shadow-[0_0_12px_rgba(0,217,154,0.15)]">
+                  <Icon className="size-[19px]" strokeWidth={2} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[14.5px] font-bold leading-none text-white sm:text-[15px]">
+                  <span className="block text-[16px] font-bold leading-none text-white sm:text-[17px]">
                     {value}
                   </span>
-                  <span className="mt-1 block text-[10px] leading-none text-white/60 whitespace-nowrap sm:text-[10.5px]">
+                  <span className="mt-1.5 block text-[11px] leading-none text-white/60 whitespace-nowrap sm:text-[11.5px]">
                     {label}
                   </span>
                 </span>
@@ -424,18 +424,20 @@ export function Hero() {
           />
         </svg>
 
-        {/* 7 Category cards — right-aligned on desktop, horizontal scroll on mobile */}
-        <div className="pointer-events-auto relative flex items-end gap-2.5 overflow-x-auto px-4 pb-4 pt-4 sm:justify-end sm:gap-3.5 sm:px-8 sm:pb-6 lg:gap-4 lg:px-10 lg:pb-7 xl:gap-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {CATEGORIES.map(({ icon, label }) => (
-            <div key={label} className="flex shrink-0 flex-col items-center gap-1.5">
-              <span className="flex size-[50px] items-center justify-center rounded-[12px] border border-[#00d99a]/55 bg-[#031d12]/90 shadow-[0_4px_14px_rgba(0,0,0,0.5)] transition hover:scale-105 hover:border-[#00d99a] sm:size-[56px] sm:rounded-[13px] lg:size-[60px]">
-                {icon}
-              </span>
-              <span className="whitespace-nowrap text-[10.5px] font-medium text-white/90 text-center sm:text-[11px]">
-                {label}
-              </span>
-            </div>
-          ))}
+        {/* 7 Category cards — constrained within max-w-7xl container, right-aligned */}
+        <div className="pointer-events-auto relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end gap-2.5 overflow-x-auto pb-4 pt-4 sm:justify-end sm:gap-3.5 sm:pb-6 lg:gap-4 lg:pb-7 xl:gap-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {CATEGORIES.map(({ icon, label }) => (
+              <div key={label} className="flex shrink-0 flex-col items-center gap-1.5">
+                <span className="flex size-[50px] items-center justify-center rounded-[12px] border border-[#00d99a]/55 bg-[#031d12]/90 shadow-[0_4px_14px_rgba(0,0,0,0.5)] transition hover:scale-105 hover:border-[#00d99a] sm:size-[56px] sm:rounded-[13px] lg:size-[60px]">
+                  {icon}
+                </span>
+                <span className="whitespace-nowrap text-[10.5px] font-medium text-white/90 text-center sm:text-[11px]">
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
