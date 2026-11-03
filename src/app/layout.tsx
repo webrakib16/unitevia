@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { Toaster } from "@/components/ui/toast";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -29,7 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-[#050a08] text-white">
         <Navbar />
-        {children}
+        <main className="flex-1">{children}</main>
+        <Footer />
         <Toaster />
       </body>
     </html>
