@@ -140,10 +140,10 @@ export function Profile({ user }: ProfileProps) {
           <div
             role="menu"
             aria-orientation="vertical"
-            className="absolute -right-16 sm:-right-8 top-full mt-3.5 z-50 w-72 sm:w-80 rounded-2xl border border-[#00d99a] bg-[#051a10] p-4 text-white shadow-[0_0_30px_rgba(0,217,154,0.25),0_15px_40px_rgba(0,0,0,0.8)] backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 duration-150"
+            className="absolute right-0 top-full mt-3.5 z-50 w-72 sm:w-80 rounded-2xl border border-[#00d99a] bg-[#051a10] p-4 text-white shadow-[0_0_30px_rgba(0,217,154,0.25),0_15px_40px_rgba(0,0,0,0.8)] backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 duration-150"
           >
             {/* Top triangle notch pointing directly up to the avatar */}
-            <div className="absolute -top-1.5 right-[78px] sm:right-[46px] size-3 rotate-45 border-l border-t border-[#00d99a] bg-[#051a10]" />
+            <div className="absolute -top-1.5 right-7 sm:right-8 size-3 rotate-45 border-l border-t border-[#00d99a] bg-[#051a10]" />
 
             {/* Top User Info Section */}
             <div className="relative z-10 flex items-center gap-3 px-1 py-1">
@@ -219,17 +219,6 @@ export function Profile({ user }: ProfileProps) {
           </div>
         )}
       </div>
-
-      {/* ── 3. Dedicated Logout Button Beside Avatar ── */}
-      <button
-        type="button"
-        onClick={handleLogout}
-        disabled={isLoggingOut}
-        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.03] px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-emerald-400/40 hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-50"
-      >
-        <LogOut className="size-4 text-neutral-300" />
-        <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
-      </button>
     </div>
   );
 }

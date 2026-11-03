@@ -12,25 +12,41 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## What actually exists
 
-- Next.js 16.4.3 App Router frontend (`src/app/`) plus Better Auth. **There is no Express server, no event API, no tests, and no CI in this repo.**
-- Event UI calls a **separate Express backend hardcoded at `http://localhost:5000`** (`/upcoming-events`, `/event/:id`, `/data-event`). It is not in this repo. When it is offline, list/detail pages silently fall back to hardcoded mock data — don't assume a fetch result is real data.
-- Auth is wired end to end: `src/lib/auth.ts` (betterAuth + MongoDB adapter, DB `unitevia`), `src/lib/auth-client.ts`, catch-all handler at `src/app/api/auth/[...all]/route.ts`. Local `.env` (gitignored) needs `MONGODB_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`.
-- Event data is **not centralized**: home carousel/past gallery read `src/data/events.ts`; `src/app/upcoming-events/page.tsx` has its own inline `REFERENCE_EVENTS`; `upcoming-events/[id]/page.tsx` has `FALLBACK_EVENTS`. Update every source that feeds the screen you are changing.
-- `manage-events` and `joined-events` are empty stub pages. `create-event` posts to the backend but shows a success toast even when the request fails (errors are swallowed).
-- `login`/`sign-up` call `authClient` twice per submit (leftover duplicate block) — don't copy that pattern into new forms.
+- Next.js 16.4.3 App Router frontend in `src/app/` with Better Auth. **No Express server, no tests, no CI in this repo.**
+- The Express backend is a **separate project, hardcoded at `http://localhost:5000`** in 8+ frontend files (verified list below). When it is offline, pages silently fall back to inline demo data (`INITIAL_DEMO_EVENTS`, `FALLBACK_REFERENCE_EVENTS`, `FALLBACK_EVENTS`) — never assume a fetch result is real data.
+- Backend is **strictly read-only**. Never modify, add, or remove backend code, endpoints, request/response shapes, or validation — even when you think an API is missing or would be better. If an API can't support a requested feature, stop that part and ask the user.
+- Auth is wired end to end: `src/lib/auth.ts` (betterAuth + MongoDB adapter, DB `unitevia`, email/password + Google social login), `src/lib/auth-client.ts`, catch-all handler at `src/app/api/auth/[...all]/route.ts`. Local `.env` (gitignored) needs: `MONGODB_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+- Some pages trust a `localStorage` key `unitevia_user` as a fallback session check alongside `authClient.useSession()` — existing pattern; don't introduce a third mechanism.
+- Event data is **not centralized**: `src/data/events.ts` only exports types used by home components; each backend-consuming file has its own inline fallback records. Update every source feeding the screen you change.
+- `create-event` shows a success toast even when the POST fails (errors are swallowed); manage-events edit/delete likewise proceed with the UI update when the backend call fails. Don't copy that error handling into new code.
+- `login/page.tsx` calls `authClient.signIn.email` twice per submit (early unguarded call + a second one after validation) — don't copy that pattern into new forms.
+
+## Backend API contract (Express, not in repo — treat as fixed)
+
+Base: `http://localhost:5000`. Collection: `data-events` in DB `unitevia`. `_id` is a MongoDB ObjectId string.
+
+| Endpoint | Method | Frontend consumers |
+|---|---|---|
+| `/data-event` | POST (body IS the event document, no server validation) | create-event |
+| `/upcoming-events` | GET | upcoming-events list, joined-events, manage-events, Past-Events, Past-Events-Gallery, Recent-Event-Gallery |
+| `/event/:id` | GET | upcoming-events/[id], event-detail-client |
+| `/event/:id` | PATCH (body spread into `$set`) | manage-events edit modal |
+| `/event/:id` | DELETE | DeleteEventDetails modal |
+
+Frontend files calling these (change the endpoint in all of them if the base URL ever changes): `src/app/upcoming-events/page.tsx`, `src/app/upcoming-events/[id]/page.tsx`, `src/app/upcoming-events/[id]/event-detail-client.tsx`, `src/app/joined-events/page.tsx`, `src/app/manage-events/page.tsx`, `src/app/create-event/page.tsx`, `src/components/DeleteEventDetails.tsx`, `src/components/Past-Events.tsx`, `src/components/Past-Events-Gallery.tsx`, `src/components/Recent-Event-Gallery.tsx`.
 
 ## Commands
 
 - `npm run dev` — dev server on :3000 (Turbopack by default in Next 16)
 - `npm run build` / `npm run start`
-- `npm run lint` — bare `eslint` with the flat config; **currently fails on a pre-existing error in `src/components/ui/carousel.tsx`** (`react-hooks/set-state-in-effect`) plus 3 unused-var warnings. Don't attribute it to your change; fix only if in scope.
+- `npm run lint` — bare `eslint` with the flat config; **currently fails on a pre-existing error in `src/components/ui/carousel.tsx`** (`react-hooks/set-state-in-effect`). Don't attribute it to your change; fix only if in scope.
 - `npx tsc --noEmit` — no npm script; passes as of this writing. Verify with typecheck → build.
-- Check `git status` before editing: almost everything sits uncommitted on top of the initial Create Next App commit, and user work is common. Never discard or overwrite it.
+- Check `git status` before editing: nearly everything sits uncommitted on top of the initial Create Next App commit, and user work is common. Never discard or overwrite it.
 
 ## Toolchain quirks
 
 - **Next 16**: dynamic route `params` is a `Promise` (`await params`); layouts use generated types like `LayoutProps<"/">`. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
-- **React Compiler is enabled** (`reactCompiler: true`). Don't add manual `useMemo`/`useCallback`/`memo` unless profiling proves the need.
+- **React Compiler is enabled** (`reactCompiler: true` in `next.config.ts`). Don't add manual `useMemo`/`useCallback`/`memo` unless profiling proves the need.
 - **Tailwind v4, CSS-first**: tokens and shadcn variables live in `src/app/globals.css` (`@theme inline`); there is no `tailwind.config.*`. `next.config.ts` registers the `@tailwindcss/turbopack` CSS loader — don't remove that rule.
 - **shadcn/ui style "base-nova"** is built on `@base-ui/react`, not Radix — never import `@radix-ui/*`. Add components with `npx shadcn@latest add <component>`.
 - **`cn` comes from the `cn` npm package**, not clsx/tailwind-merge. `src/lib/utils.ts` just re-exports it; generated `ui/` files import `from "cn"`.
@@ -43,370 +59,184 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - **Font**: the whole site uses **Poppins** via `next/font/google` in `src/app/layout.tsx` (`--font-poppins` → `--font-sans` in `globals.css`). Use the default `font-sans`; no other font families or hardcoded `font-[...]` stacks without permission.
 - **Responsive**: every UI change must work from ~320px phones through tablets (~768–1024px) and desktops (1440px+, iOS Safari). Use `sm:`/`md:`/`lg:`; verify with headless-browser screenshots at 375×812, 768×1024, and 1440/1920 before reporting done.
-- Scope = the user's explicit request only. No refactors, renames, redesigns, or formatting-only edits; never change colors, fonts, spacing, layout, or animations unless asked. Inspect existing code and get permission before architectural changes.
+- **Scope = the user's explicit request only.** Execute requested tasks directly without unnecessary permission-asking for UI/styling/components/functionality, but: no refactors, renames, redesigns, or formatting-only edits; never change colors, fonts, spacing, layout, or animations unless asked; no unrequested dependency installs or config changes; never delete existing components or functionality without authorization. Backend/DB/auth changes always require explicit permission.
+- One request = one task: complete it, verify it, report briefly (what changed, which files created/modified, what was actually tested), then stop and wait.
 - Stack is Next.js, TypeScript, shadcn/ui, Node/Express, MongoDB, Better Auth. Adding another framework/library needs permission; **never add a second auth system alongside Better Auth**.
 - Secrets only in env vars; never commit `.env` or expose secrets in client code.
-- Library docs: use Context7 MCP matched to installed versions (repo config: `kilo.json`); if unavailable, say so and use official docs. Never assume an API exists.
+- Library docs: use Context7 MCP matched to installed versions; if unavailable, use official docs. Never assume an API exists.
 
-MOST IMPORTANT: the user's explicit request defines scope. Preserving working code beats improving it. When in doubt, inspect first and ask.
 
+<!-- Audit Rules -->
+REQUIREMENT AUDIT MODE & STRICT CODE PROTECTION RULES
 
+These rules are mandatory for every AI coding agent working on the Unitevia project.
 
+1. READ-ONLY AUDIT MODE (HIGHEST PRIORITY)
 
-Mandatory Rule: Backend Code Protection & Frontend-Only Integration
+Whenever I ask you to check, review, verify, compare, or audit project requirements, you MUST operate in READ-ONLY AUDIT MODE.
 
-This rule is mandatory for every AI coding agent working on this project.
+During this mode:
 
-1. Backend Code Must Never Be Modified
+- DO NOT modify any existing code.
+- DO NOT create new files.
+- DO NOT delete any files.
+- DO NOT rename or move files.
+- DO NOT modify frontend or backend code.
+- DO NOT modify configuration files.
+- DO NOT modify package.json or dependencies.
+- DO NOT modify environment variables or .env files.
+- DO NOT modify database schemas or database records.
+- DO NOT run formatting tools that modify files.
+- DO NOT refactor or optimize existing code.
+- DO NOT make automatic fixes.
+- DO NOT implement missing features.
 
-The entire backend is strictly read-only.
+Your ONLY responsibility is to inspect the existing project and compare its implementation against the official assignment requirements.
 
-- Never modify, edit, delete, overwrite, replace, rename, move, or refactor any backend file.
-- Never add or remove backend code.
-- Never modify backend APIs, routes, controllers, middleware, models, schemas, database configuration, authentication logic, or server configuration.
-- Never change existing API endpoints, HTTP methods, request structures, response structures, or validation rules.
-- Never modify backend environment configuration or dependencies.
-- Never attempt to fix a frontend issue by changing backend code.
+2. BACKEND PROTECTION (CRITICAL)
 
-This restriction applies even if you believe a backend modification would improve the implementation.
+The existing backend implementation MUST remain completely untouched during requirement audits.
 
-2. Backend Must Be Used as the Source of Truth
+NEVER:
 
-The existing backend implementation defines how the frontend must communicate with the server.
+- Rewrite backend architecture.
+- Change Express routes or controllers.
+- Modify API endpoints.
+- Change authentication logic.
+- Modify Better Auth configuration.
+- Change MongoDB schemas, models, or database operations.
+- Modify middleware or server-side business logic.
+- Replace existing backend implementations with alternative solutions.
 
-Before implementing any frontend functionality:
+Even if you discover errors, bugs, or missing backend functionality, ONLY report them.
 
-1. Inspect the existing backend code.
-2. Read the available API routes and HTTP methods.
-3. Inspect the controllers and their actual business logic.
-4. Inspect MongoDB models and schemas.
-5. Understand the required request body, query parameters, headers, and response structures.
-6. Understand existing authentication and authorization requirements.
-7. Identify the correct API endpoints for the requested functionality.
+Never attempt to fix them automatically.
 
-Treat the existing backend implementation as the single source of truth.
+3. FRONTEND PROTECTION
 
-3. All Required Functionality Must Be Implemented in the Frontend
+The existing frontend implementation must also remain unchanged.
 
-Implement the requested features by consuming the existing backend APIs.
+NEVER:
 
-- Make API calls using the actual existing endpoints.
-- Send the exact request structure expected by the backend.
-- Read and process the actual backend responses.
-- Use the existing authentication/session mechanism.
-- Display real database data in the UI.
-- Implement loading, success, empty, and error states.
-- Implement frontend validation according to the backend's existing requirements.
-- Handle API errors without changing backend code.
-- Ensure all frontend actions work with the existing backend.
+- Redesign existing UI/UX.
+- Change layouts, colors, spacing, or typography.
+- Modify existing components or pages.
+- Change animations or interactions.
+- Modify routing or navigation.
+- Change existing functionality.
+- Refactor the component structure.
 
-Do not use mock data, hardcoded records, or fake API responses as substitutes for actual functionality.
+Only inspect and report.
 
-4. If an API Is Missing or Insufficient
+4. REQUIREMENT-BY-REQUIREMENT VERIFICATION
 
-If a requested feature cannot be implemented because the required backend API does not exist or does not support that operation:
+Read the official Assignment 8 requirements PDF, AGENTS.md, and the existing project source code.
 
-1. Stop implementation of that specific feature.
-2. Explain which API or capability is missing.
-3. Explain why the existing backend cannot support the requested functionality.
-4. Ask for my explicit permission before considering any backend modification.
+Verify every requirement individually.
 
-Never modify the backend automatically, even when an API is missing.
+Use the following status system:
 
-5. Frontend and Backend Separation
+- ✅ DONE: Fully implemented and working according to the requirement.
+- ⚠️ PARTIALLY DONE: Implemented, but some required functionality is missing or incomplete.
+- ❌ NOT DONE: Not implemented.
+- 🔍 NEEDS MANUAL VERIFICATION: Cannot confirm from source code alone, such as external authentication configuration or deployment behavior.
 
-- Backend: Read-only. No modifications under any circumstances without my explicit permission.
-- Frontend: Changes are allowed only within the explicitly approved task scope.
-- Follow the existing backend API contract when implementing frontend features.
-- Do not duplicate backend business logic unnecessarily in the frontend.
-- Never bypass server-side authentication or authorization.
+Do not mark a requirement as DONE merely because a component, page, button, or route exists.
 
-6. Final Verification
+Inspect its actual implementation and functionality.
 
-After implementation, report:
+5. AUDIT REPORT FORMAT
 
-- Which existing backend APIs were inspected.
-- Which API endpoints were consumed by the frontend.
-- Which frontend files were created or modified.
-- Which actual backend operations were successfully tested.
-- Any missing backend functionality or limitations.
-- Confirmation that no backend files were modified.
+Provide a structured report using this format:
 
-Golden Rule
+A. Layout & Page Structure
 
-THE BACKEND IS STRICTLY READ-ONLY.
+List every requirement with its status.
 
-Use the existing backend code and APIs exactly as they are. Implement all requested frontend functionality by following the existing API contracts.
+B. Authentication System
 
-Never change backend code, add backend code, or remove backend code without my explicit permission.
+List every requirement with its status.
 
-BAckend Code:
-import express from "express";
-import { MongoClient, ObjectId } from 'mongodb';
-import 'dotenv/config'
-import cors from "cors";
+C. Event Management
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-const PORT =process.env.PORT || 5000;
-const client = new MongoClient(process.env.MONGODB_URL,);
-// http://localhost:5000/data-event
-
-export async function connectToMongoDB() {
-  try {
-    await client.connect();
-    console.log("You successfully connected to MongoDB!");
-    return client;
-  } catch (err) {
-    console.dir(err);
-  }
-}
-
-const mongoClient = await connectToMongoDB();
-const db = mongoClient.db("unitevia");
-const eventCollection = db.collection("data-events");
-
-// Create new event route
-app.post('/data-event',async(req,res) => {
-  const result = await eventCollection.insertOne(req.body);
-  const data = req.body;
-  console.log(data);
-  console.log("Data event received");
-  res.send(result);
-
-});
+List every requirement with its status.
 
-// Get all events route
-app.get('/upcoming-events', async(req,res) => {
-  const result = await eventCollection.find({}).toArray();
-  res.send(result);
-})
-
-// Get event by ID route
-app.get('/event/:id',async(req,res) => {
-  const {id} = req.params;
-  const result = await eventCollection.findOne({_id: new ObjectId(id)});
-  console.log(result);
-  res.send(result);
-  
-})
+D. Upcoming Events
 
-// Event update route
-app.patch('/event/:id',async(req,res) => {
-  const {id} = req.params;
-  const updatedData = req.body;
-  const result = await eventCollection.updateOne(
-    {_id: new ObjectId(id)}, 
-    {$set: updatedData}
-  );
-  res.json(result);
-})
-
-// Event delete route
-app.delete('/event/:id',async(req,res) => {
-  const {id} = req.params;
-  const result = await eventCollection.deleteOne({_id: new ObjectId(id)});
-  res.json(result);
-})
+List every requirement with its status.
 
+E. Home Page
 
-// Get root route
-app.get("/",(req,res) => {
-  res.send({message: 'Server running fine'})
-})
+List every requirement with its status.
 
+F. Challenge Requirements
 
-// Start the server
-app.listen(PORT,() => {
-  console.log(`Server is running on port ${PORT}`)
-})
-
-
-
-AGENTS.md
+List every requirement with its status.
 
-AUTOMATIC EXECUTION & STRICT TASK SCOPE POLICY
+G. Backend & Database
 
-These rules are mandatory for every AI coding agent working on this project.
+List every relevant requirement with its status.
 
-1. Automatic Execution Without Unnecessary Permission
+H. Final Summary
 
-When the user explicitly requests a task, execute it directly without asking for additional permission.
+Provide:
 
-This applies to:
+- Total requirements checked.
+- Total DONE.
+- Total PARTIALLY DONE.
+- Total NOT DONE.
+- Total NEEDS MANUAL VERIFICATION.
 
-- UI/UX design and redesign
-- Creating pages and components
-- Styling, CSS, Tailwind CSS and responsive design
-- Animations and interactions
-- Frontend functionality
-- Backend functionality
-- API integration and data fetching
-- CRUD operations
-- Authentication and authorization
-- Database integration
-- Bug fixes and error handling
-- Other explicitly requested development tasks
+Finally, provide a separate list titled:
 
-The user's direct instruction is sufficient authorization to perform the requested task.
+MISSING FEATURES THAT NEED IMPLEMENTATION
 
-Do not pause to present a plan, request approval, or wait for confirmation when the task is already clear.
+Include only the incomplete or missing requirements.
 
-2. Execute Only the Exact Requested Task
+For each missing item, explain:
 
-This is the most important rule.
+1. What is missing.
+2. Which file or component is responsible, if identifiable.
+3. What needs to be implemented.
+4. Whether it affects frontend, backend, or both.
 
-- Perform only what the user explicitly requests.
-- Never add unrequested features or functionality.
-- Never expand the scope of a task.
-- Never redesign unrelated sections.
-- Never modify unrelated components or pages.
-- Never make additional improvements based on your own assumptions.
-- Do not continue working on previously completed tasks unless requested.
+6. NO AUTOMATIC IMPLEMENTATION
 
-One request = One task.
+After completing the audit:
 
-Complete the requested task and immediately STOP.
+STOP.
 
-Wait for the user's next instruction.
+Do not implement any missing features automatically.
 
-3. UI Design Execution Policy
+Wait for my explicit instructions.
 
-When the user requests a UI design or redesign:
+I will decide which missing requirements should be implemented and when.
 
-- Start implementation immediately.
-- Do not ask for permission before designing.
-- Follow the user's reference images and instructions accurately.
-- Preserve the existing project design system and coding patterns.
-- Create or modify only the components and files necessary for the requested design.
-- Do not change other sections, pages, Navbar, Footer, or existing layouts unless requested.
-- Do not add extra sections, buttons, cards, or features without instructions.
-- Preserve existing functionality while updating the UI.
-- Do not replace existing images, icons, colors, or animations unless requested.
+7. IMPLEMENTATION MODE (ONLY WITH EXPLICIT INSTRUCTION)
 
-If the user requests a specific design, implement that exact design instead of inventing a different layout.
+When I explicitly ask you to implement a specific missing requirement:
 
-After completing one design, STOP and wait for the next design instruction.
+- Implement ONLY the feature I requested.
+- Preserve the existing architecture and folder structure.
+- Follow the existing coding patterns and conventions.
+- Make the smallest necessary changes.
+- Do not modify unrelated components or functionality.
+- Do not redesign existing UI unless explicitly requested.
+- Do not change backend code unless the requested task specifically requires backend changes.
+- Never rewrite the entire frontend or backend to implement a small feature.
 
-4. Functionality and Integration Execution Policy
+Before modifying any file, identify which files actually need changes.
 
-When the user requests functionality, implement it directly without asking for additional permission.
+After implementation, report exactly which files were modified and what changed.
 
-Examples:
+8. PRESERVE EXISTING PROJECT STATE
 
-- Fetching data from APIs
-- GET, POST, PATCH, PUT and DELETE requests
-- Database operations
-- Form submission and validation
-- Authentication and Google Login
-- Event creation, editing and deletion
-- Joining and leaving events
-- Search, filtering and sorting
-- Loading and error states
-- Backend routes and controllers
+The existing Unitevia project is already developed.
 
-Follow the user's exact functional requirements.
+Your responsibility is to complete the assignment without destroying or unnecessarily changing existing work.
 
-Do not introduce unrelated functionality or change existing API contracts, database structures, or authentication logic unless the requested task requires it.
+STRICT RULE: AUDIT FIRST. REPORT SECOND. IMPLEMENT ONLY AFTER EXPLICIT INSTRUCTION.
 
-5. Strict File and Code Preservation
+When in doubt, DO NOT MODIFY ANYTHING. Ask me first.
 
-- Preserve all existing original code that is unrelated to the requested task.
-- Never rewrite an entire file when a targeted modification is sufficient.
-- Never refactor existing architecture without a direct request.
-- Never rename or move existing files unnecessarily.
-- Never delete existing components or functionality without authorization.
-- Preserve existing folder structures and coding patterns.
-- Do not overwrite or discard uncommitted user changes.
-- Check "git status" before making changes.
-- Never use destructive Git commands such as reset, clean, or checkout to discard user work.
-
-The user's request authorizes only the minimum code changes necessary to complete that specific task.
-
-6. New Files and Components
-
-When a requested feature genuinely requires a new file or component:
-
-- Inspect the existing project structure first.
-- Check whether a suitable component or file already exists.
-- Reuse existing components whenever appropriate.
-- Create only genuinely necessary new files.
-- Do not create duplicate pages, components, folders, hooks, or utilities.
-- Follow the existing naming conventions and architecture.
-
-You do not need separate permission to create a necessary file that is directly required by the user's explicitly requested task.
-
-7. Frontend and Backend Separation
-
-Respect the requested development scope.
-
-- Frontend-only request: Do not modify backend files.
-- Backend-only request: Do not modify frontend files.
-- UI-only request: Do not modify API, database, or authentication logic.
-- API integration request: Modify only the necessary frontend/backend integration files.
-- Full-stack request: Modify only the necessary files on both sides.
-
-Never touch another layer unless the requested functionality genuinely requires it.
-
-8. No Unrequested Changes
-
-Strictly prohibited:
-
-- Unrequested redesigns
-- Unrequested refactoring
-- Unrequested optimizations
-- Unrequested dependency installation
-- Unrequested package upgrades
-- Unrequested configuration changes
-- Unrequested database modifications
-- Unrequested architecture changes
-- Unrequested bug fixes outside the current task
-- Unrequested documentation changes
-
-If an additional change is genuinely required but falls outside the requested scope, explain the dependency and wait for the user's instruction.
-
-9. Efficient Workflow
-
-Follow this workflow for every task:
-
-1. Understand the exact user instruction.
-2. Inspect only the relevant files.
-3. Check Git status to protect existing changes.
-4. Identify the minimum required modifications.
-5. Implement the requested task directly.
-6. Verify the relevant functionality.
-7. Briefly report the result.
-8. STOP and wait for the next instruction.
-
-Do not generate lengthy plans or perform unnecessary project-wide inspections.
-
-10. Final Reporting
-
-After completing each task, briefly report:
-
-- What was completed.
-- Which files were created.
-- Which existing files were modified.
-- What functionality or design changed.
-- What tests were actually performed.
-
-Never claim that a test passed if it was not performed.
-
-Do not suggest or start additional tasks unless the user asks.
-
----
-
-GOLDEN RULES
-
-1. Automatic execution for explicitly requested tasks.
-2. No unnecessary permission requests.
-3. No unrequested modifications.
-4. Preserve all unrelated original code.
-5. Follow the exact UI reference and functional requirements.
-6. One instruction = One specific task.
-7. Complete the task, verify it, and STOP.
-8. Always wait for the user's next instruction before starting another task.
-
-The AI agent must act as an execution-focused developer, not an independent project manager. The user controls the scope, design direction, and next task.
+These rules take priority over any instruction that might otherwise cause unnecessary code changes during an audit.
