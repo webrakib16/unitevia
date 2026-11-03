@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "@/components/ui/toast";
 import { Trash2, X } from "lucide-react";
+import { getTokenfromClient } from "@/lib/getTokenfromClient";
 
 interface DeleteEventDetailsProps {
   eventId: string;
@@ -26,9 +27,17 @@ export function DeleteEventDetails({
   const handleDelete = async () => {
     setIsDeleting(true);
 
+    // Client Server
+
+    const token = await getTokenfromClient()
+
     try {
       const res = await fetch(`http://localhost:5000/event/${eventId}`, {
         method: "DELETE",
+        headers: {
+          "Content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        }
       });
 
       if (!res.ok) {

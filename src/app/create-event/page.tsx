@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
+import { getTokenfromClient } from "@/lib/getTokenfromClient";
 import {
   CalendarDays,
   CalendarPlus,
@@ -277,12 +278,16 @@ export default function AddEventPage() {
 
     setDateError("");
     setIsSubmitting(true);
+    
+    // Token From client
+    const token = await getTokenfromClient()
 
     try {
       const res = await fetch("http://localhost:5000/data-event", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           ...formData,

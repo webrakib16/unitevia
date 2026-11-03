@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
+import { getTokenfromClient } from "@/lib/getTokenfromClient";
 import { EditEventDetails, type EditEventForm } from "@/components/EditEventDetails";
 import { DeleteEventDetails } from "@/components/DeleteEventDetails";
 import {
@@ -232,9 +233,15 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
     setIsJoining(true);
 
     try {
+      const token = await getTokenfromClient();
+      if (!token) {
+        throw new Error("Could not authenticate this request. Please sign in again.");
+      }
+
       // 1. Re-fetch the event so the write goes on top of the latest joinedUsers
       const freshRes = await fetch(
-        `http://localhost:5000/event/${currentEvent._id}`
+        `http://localhost:5000/event/${currentEvent._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!freshRes.ok) {
         throw new Error(
@@ -280,7 +287,10 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
         `http://localhost:5000/event/${currentEvent._id}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             joinedUsers: newJoinedUsers,
             joined: (freshEvent.joined || 0) + 1,

@@ -31,6 +31,7 @@ import {
 import { EditEventDetails, type EditEventForm } from "@/components/EditEventDetails";
 import { DeleteEventDetails } from "@/components/DeleteEventDetails";
 import { toast } from "@/components/ui/toast";
+import { getTokenfromClient } from "@/lib/getTokenfromClient";
 
 interface EventItem {
   id: string;
@@ -182,7 +183,7 @@ export default function ManageEventsPage() {
         return res.json();
       })
       .then((data) => {
-        if (isMounted && Array.isArray(data) && data.length > 0) {
+        if (isMounted && Array.isArray(data)) {
           const stored = localStorage.getItem("unitevia_user");
           let storedUser: { email?: string } | null = null;
           try {
@@ -306,10 +307,16 @@ export default function ManageEventsPage() {
     if (!editingEvent) return;
     setIsSaving(true);
 
+    const token = await getTokenfromClient()
+
     try {
       const res = await fetch(`http://localhost:5000/event/${editingEvent.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+
         body: JSON.stringify({
           title: updatedData.title,
           category: updatedData.category,
