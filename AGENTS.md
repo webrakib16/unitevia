@@ -51,85 +51,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 MOST IMPORTANT: the user's explicit request defines scope. Preserving working code beats improving it. When in doubt, inspect first and ask.
 
 
-Mandatory Rule: Preserve Original Code & Explicit Permission Before Changes
 
-These rules are mandatory and must be followed by every AI coding agent working on this project.
-
-1. Preserve All Original Code
-
-- Never modify, delete, overwrite, replace, rename, move, or refactor existing original code without my explicit permission.
-- Preserve the existing project architecture, folder structure, components, pages, styling, animations, functionality, and coding patterns.
-- Do not make unnecessary changes to existing files.
-- Do not rewrite an entire file when only a small, targeted change is required.
-- Never remove existing code just because you think a different implementation would be better.
-- Do not make assumptions that existing code is unnecessary or outdated.
-
-2. Explicit Permission Is Required Before Editing
-
-Before modifying any existing file or original code, you MUST ask for my permission and wait for my approval.
-
-Follow this process:
-
-1. Inspect the relevant files and understand the existing implementation.
-2. Identify exactly which files need changes.
-3. Explain why each change is necessary.
-4. Show me the proposed modifications and their expected impact.
-5. Ask for my explicit permission.
-6. Wait until I approve before editing any existing file.
-
-Do not interpret silence, general project instructions, or a request to implement a feature as permission to modify unrelated existing code.
-
-3. Minimal Changes Only
-
-After receiving permission:
-
-- Modify only the files I approved.
-- Make only the minimum changes required to complete the requested task.
-- Preserve all unrelated original code.
-- Do not perform unrelated cleanup, optimization, refactoring, formatting, or redesign.
-- Do not introduce unnecessary dependencies, components, hooks, utilities, or configuration changes.
-- Do not change existing UI, colors, spacing, typography, responsiveness, or animations unless explicitly requested.
-
-4. New Files and Components
-
-- Do not create duplicate pages, components, folders, or utilities.
-- Inspect the existing project structure before creating anything.
-- Create a new file only when it is genuinely necessary.
-- Explain the purpose and location of every proposed new file.
-- Ask for my permission before creating new files or folders.
-
-5. Protect Existing User Changes
-
-- Check "git status" before starting any task.
-- Never overwrite, discard, reset, or remove my uncommitted changes.
-- Never run destructive Git commands without my explicit permission.
-- Do not restore or replace original files automatically.
-
-6. Strict Permission Policy
-
-If a task requires modifying existing code beyond the approved scope, STOP.
-
-Explain:
-
-- Which additional file needs modification.
-- Why the modification is necessary.
-- What functionality may be affected.
-
-Ask for my permission and wait for approval.
-
-Never proceed with unapproved changes.
-
-7. Final Verification
-
-After implementation:
-
-- List every file created.
-- List every existing file modified.
-- Explain exactly what changed in each file.
-- Confirm that unrelated original code was preserved.
-- Report any tests actually performed.
-
-Golden Rule: My original code belongs to me. Do not change anything outside the explicitly approved scope. Always ask before modifying existing code.
 
 Mandatory Rule: Backend Code Protection & Frontend-Only Integration
 
@@ -300,3 +222,191 @@ app.get("/",(req,res) => {
 app.listen(PORT,() => {
   console.log(`Server is running on port ${PORT}`)
 })
+
+
+
+AGENTS.md
+
+AUTOMATIC EXECUTION & STRICT TASK SCOPE POLICY
+
+These rules are mandatory for every AI coding agent working on this project.
+
+1. Automatic Execution Without Unnecessary Permission
+
+When the user explicitly requests a task, execute it directly without asking for additional permission.
+
+This applies to:
+
+- UI/UX design and redesign
+- Creating pages and components
+- Styling, CSS, Tailwind CSS and responsive design
+- Animations and interactions
+- Frontend functionality
+- Backend functionality
+- API integration and data fetching
+- CRUD operations
+- Authentication and authorization
+- Database integration
+- Bug fixes and error handling
+- Other explicitly requested development tasks
+
+The user's direct instruction is sufficient authorization to perform the requested task.
+
+Do not pause to present a plan, request approval, or wait for confirmation when the task is already clear.
+
+2. Execute Only the Exact Requested Task
+
+This is the most important rule.
+
+- Perform only what the user explicitly requests.
+- Never add unrequested features or functionality.
+- Never expand the scope of a task.
+- Never redesign unrelated sections.
+- Never modify unrelated components or pages.
+- Never make additional improvements based on your own assumptions.
+- Do not continue working on previously completed tasks unless requested.
+
+One request = One task.
+
+Complete the requested task and immediately STOP.
+
+Wait for the user's next instruction.
+
+3. UI Design Execution Policy
+
+When the user requests a UI design or redesign:
+
+- Start implementation immediately.
+- Do not ask for permission before designing.
+- Follow the user's reference images and instructions accurately.
+- Preserve the existing project design system and coding patterns.
+- Create or modify only the components and files necessary for the requested design.
+- Do not change other sections, pages, Navbar, Footer, or existing layouts unless requested.
+- Do not add extra sections, buttons, cards, or features without instructions.
+- Preserve existing functionality while updating the UI.
+- Do not replace existing images, icons, colors, or animations unless requested.
+
+If the user requests a specific design, implement that exact design instead of inventing a different layout.
+
+After completing one design, STOP and wait for the next design instruction.
+
+4. Functionality and Integration Execution Policy
+
+When the user requests functionality, implement it directly without asking for additional permission.
+
+Examples:
+
+- Fetching data from APIs
+- GET, POST, PATCH, PUT and DELETE requests
+- Database operations
+- Form submission and validation
+- Authentication and Google Login
+- Event creation, editing and deletion
+- Joining and leaving events
+- Search, filtering and sorting
+- Loading and error states
+- Backend routes and controllers
+
+Follow the user's exact functional requirements.
+
+Do not introduce unrelated functionality or change existing API contracts, database structures, or authentication logic unless the requested task requires it.
+
+5. Strict File and Code Preservation
+
+- Preserve all existing original code that is unrelated to the requested task.
+- Never rewrite an entire file when a targeted modification is sufficient.
+- Never refactor existing architecture without a direct request.
+- Never rename or move existing files unnecessarily.
+- Never delete existing components or functionality without authorization.
+- Preserve existing folder structures and coding patterns.
+- Do not overwrite or discard uncommitted user changes.
+- Check "git status" before making changes.
+- Never use destructive Git commands such as reset, clean, or checkout to discard user work.
+
+The user's request authorizes only the minimum code changes necessary to complete that specific task.
+
+6. New Files and Components
+
+When a requested feature genuinely requires a new file or component:
+
+- Inspect the existing project structure first.
+- Check whether a suitable component or file already exists.
+- Reuse existing components whenever appropriate.
+- Create only genuinely necessary new files.
+- Do not create duplicate pages, components, folders, hooks, or utilities.
+- Follow the existing naming conventions and architecture.
+
+You do not need separate permission to create a necessary file that is directly required by the user's explicitly requested task.
+
+7. Frontend and Backend Separation
+
+Respect the requested development scope.
+
+- Frontend-only request: Do not modify backend files.
+- Backend-only request: Do not modify frontend files.
+- UI-only request: Do not modify API, database, or authentication logic.
+- API integration request: Modify only the necessary frontend/backend integration files.
+- Full-stack request: Modify only the necessary files on both sides.
+
+Never touch another layer unless the requested functionality genuinely requires it.
+
+8. No Unrequested Changes
+
+Strictly prohibited:
+
+- Unrequested redesigns
+- Unrequested refactoring
+- Unrequested optimizations
+- Unrequested dependency installation
+- Unrequested package upgrades
+- Unrequested configuration changes
+- Unrequested database modifications
+- Unrequested architecture changes
+- Unrequested bug fixes outside the current task
+- Unrequested documentation changes
+
+If an additional change is genuinely required but falls outside the requested scope, explain the dependency and wait for the user's instruction.
+
+9. Efficient Workflow
+
+Follow this workflow for every task:
+
+1. Understand the exact user instruction.
+2. Inspect only the relevant files.
+3. Check Git status to protect existing changes.
+4. Identify the minimum required modifications.
+5. Implement the requested task directly.
+6. Verify the relevant functionality.
+7. Briefly report the result.
+8. STOP and wait for the next instruction.
+
+Do not generate lengthy plans or perform unnecessary project-wide inspections.
+
+10. Final Reporting
+
+After completing each task, briefly report:
+
+- What was completed.
+- Which files were created.
+- Which existing files were modified.
+- What functionality or design changed.
+- What tests were actually performed.
+
+Never claim that a test passed if it was not performed.
+
+Do not suggest or start additional tasks unless the user asks.
+
+---
+
+GOLDEN RULES
+
+1. Automatic execution for explicitly requested tasks.
+2. No unnecessary permission requests.
+3. No unrequested modifications.
+4. Preserve all unrelated original code.
+5. Follow the exact UI reference and functional requirements.
+6. One instruction = One specific task.
+7. Complete the task, verify it, and STOP.
+8. Always wait for the user's next instruction before starting another task.
+
+The AI agent must act as an execution-focused developer, not an independent project manager. The user controls the scope, design direction, and next task.

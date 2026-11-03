@@ -5,28 +5,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, LogIn, Moon } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { act } from "react";
 
-const navLinks = [
-  {href: "/",label: "Home",active: true},
-  { href: "/upcoming-events", label: "Upcoming Events" },
-  { href: "/login", label: "Login" },
-  { href: "/sign-up", label: "Sign Up" },
-];
-  
 export function Navbar() {
-
-  //  Get the current session user using the authClient
-  const {data: session} = authClient.useSession();
+  // Get the current session user using the authClient
+  const { data: session } = authClient.useSession();
   const user = session?.user;
   console.log("Navbar session user:", user);
-
 
   const pathname = usePathname();
 
   if (pathname === "/sign-up" || pathname === "/login") {
     return null;
   }
+
+  const isUpcomingActive =
+    pathname === "/upcoming-events" || pathname.startsWith("/upcoming-events");
 
   return (
     <header className="relative z-10 border-b border-white/5 bg-black/20">
@@ -53,7 +46,11 @@ export function Navbar() {
         {/* Center action */}
         <Link
           href="/upcoming-events"
-          className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 md:inline-flex md:px-5"
+          className={`hidden items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition md:inline-flex md:px-5 ${
+            isUpcomingActive
+              ? "border border-emerald-400/60 bg-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+              : "border border-white/10 bg-white/[0.04] text-neutral-200 hover:bg-white/10"
+          }`}
         >
           <CalendarDays className="size-4 text-emerald-400" />
           Upcoming Events

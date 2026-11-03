@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowRight, CalendarDays, Heart, Leaf, Plus, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -333,15 +334,15 @@ export function Hero() {
           {/* CTA Buttons */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3.5">
             {/* Primary button: solid mint-green pill with dark text and glow */}
-            <a
-              href="/events"
+            <Link
+              href="/upcoming-events"
               className="inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-6 text-[14px] font-semibold text-[#032014] shadow-[0_0_24px_rgba(0,217,154,0.35)] transition hover:brightness-110 sm:text-[14.5px]"
             >
               Explore Upcoming Events
               <ArrowRight className="size-4 shrink-0" strokeWidth={2.5} />
-            </a>
+            </Link>
             {/* Secondary button: dark-tinted pill with mint-green border */}
-            <a
+            <Link
               href="/create-event"
               className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#00d99a]/60 bg-[#032014]/60 px-5 text-[14px] font-semibold text-white shadow-[0_0_15px_rgba(0,217,154,0.1)] transition hover:border-[#00d99a] hover:bg-[#032014]/90 sm:text-[14.5px]"
             >
@@ -349,7 +350,7 @@ export function Hero() {
                 <Plus className="size-2.5" strokeWidth={2.5} />
               </span>
               Create Event
-            </a>
+            </Link>
           </div>
 
           {/* Impact Statistics — All 4 in ONE single horizontal row on desktop */}

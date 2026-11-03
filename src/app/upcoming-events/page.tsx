@@ -18,12 +18,12 @@ import {
   MapPin,
   Search,
   Shirt,
+  Sparkles,
   Sprout,
   Users,
   Utensils,
 } from "lucide-react";
 
-// ─── Initial Reference Events ─────────────────────────────────────────────────
 export interface EventItem {
   id: number | string;
   title: string;
@@ -36,7 +36,8 @@ export interface EventItem {
   image: string;
 }
 
-const REFERENCE_EVENTS: EventItem[] = [
+// Fallback events if database is unreachable
+const FALLBACK_REFERENCE_EVENTS: EventItem[] = [
   {
     id: 1,
     title: "Winter Clothing Distribution",
@@ -46,19 +47,19 @@ const REFERENCE_EVENTS: EventItem[] = [
     location: "Rajshahi, Bangladesh",
     description:
       "Distribute warm clothes among underprivileged families in our local community.",
-    joined: 120,
+    joined: 0,
     image: "/assets/upcoming-events/blanket-distribution.jpg",
   },
   {
     id: 2,
-    title: "Voluntary Blood Dontation Camp",
+    title: "Voluntary Blood Donation Camp",
     category: "Blood Camp",
     date: "Dec 24, 2026",
     time: "09:00 AM",
     location: "Chapainawabganj",
     description:
       "A community blood donation program to support local hospitals and save lives.",
-    joined: 78,
+    joined: 0,
     image: "/assets/events/health-eye-camp.jpg",
   },
   {
@@ -70,7 +71,7 @@ const REFERENCE_EVENTS: EventItem[] = [
     location: "Rajshahi, Bangladesh",
     description:
       "Distribute educational materials and support the learning journey of local students.",
-    joined: 64,
+    joined: 0,
     image: "/assets/events/winter-clothes-distribution.jpg",
   },
   {
@@ -82,66 +83,72 @@ const REFERENCE_EVENTS: EventItem[] = [
     location: "Rajshahi, Bangladesh",
     description:
       "A tree plantation initiative to create a greener and healthier community.",
-    joined: 92,
+    joined: 0,
     image: "/assets/events/tree-plantation-drive.jpg",
   },
   {
     id: 5,
     title: "Food Distribution Drive",
-    category: "Food Awareness",
+    category: "Food Drive",
     date: "Jan 08, 2027",
     time: "11:00 AM",
     location: "Nachole, Chapainawabganj",
     description:
       "Provide nutritious meals to low-income families and ensure food support for those in need.",
-    joined: 140,
+    joined: 0,
     image: "/assets/events/community-food-distribution.jpg",
   },
   {
     id: 6,
-    title: "Free Health Checkup Camp",
-    category: "Healthcare",
+    title: "Clean The City Drive",
+    category: "Cleanliness",
     date: "Jan 12, 2027",
     time: "10:00 AM",
     location: "Rajshahi, Bangladesh",
     description:
-      "A free health checkup and basic medical consultation for the local community.",
-    joined: 110,
-    image: "/assets/events/community-free-health-eye-camp-g1.jpg",
+      "A clean environment is essential for a healthy and peaceful community.",
+    joined: 0,
+    image: "/assets/events/lake-cleanup-campaign.jpg",
+  },
+  {
+    id: 7,
+    title: "Blanket Distribution for the Needy",
+    category: "Donation",
+    date: "Jan 15, 2027",
+    time: "10:00 AM",
+    location: "Dhaka, Bangladesh",
+    description:
+      "Help distribute warm blankets to homeless people and families in need.",
+    joined: 0,
+    image: "/assets/events/blanket-distribution.jpg",
   },
 ];
 
 // Helper to render matching icon per category
 function CategoryIcon({ category }: { category: string }) {
-  switch (category) {
-    case "Winter Relief":
-      return <Shirt className="size-3.5 text-emerald-400" />;
-    case "Blood Camp":
-      return <Droplet className="size-3.5 fill-rose-500 text-rose-500" />;
-    case "Education":
-      return <BookOpen className="size-3.5 text-sky-400" />;
-    case "Greenery":
-      return <Sprout className="size-3.5 text-emerald-400" />;
-    case "Food Awareness":
-    case "Food Drive":
-      return <Utensils className="size-3.5 text-amber-400" />;
-    case "Healthcare":
-    case "Health Camp":
-      return <Heart className="size-3.5 fill-rose-400 text-rose-400" />;
-    default:
-      return <Layers className="size-3.5 text-emerald-400" />;
-  }
+  const norm = category?.toLowerCase().trim() || "";
+  if (norm.includes("winter")) return <Shirt className="size-3.5 text-emerald-400" />;
+  if (norm.includes("blood")) return <Droplet className="size-3.5 fill-rose-500 text-rose-500" />;
+  if (norm.includes("education")) return <BookOpen className="size-3.5 text-sky-400" />;
+  if (norm.includes("green") || norm.includes("plant")) return <Sprout className="size-3.5 text-emerald-400" />;
+  if (norm.includes("food")) return <Utensils className="size-3.5 text-amber-400" />;
+  if (norm.includes("clean")) return <Sparkles className="size-3.5 text-teal-400" />;
+  if (norm.includes("donat")) return <Heart className="size-3.5 fill-rose-400 text-rose-400" />;
+  return <Layers className="size-3.5 text-emerald-400" />;
 }
 
+const ITEMS_PER_PAGE = 12;
+
 export default function AllEventsPage() {
-  const [events, setEvents] = useState<EventItem[]>(REFERENCE_EVENTS);
+  const [events, setEvents] = useState<EventItem[]>(FALLBACK_REFERENCE_EVENTS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedDate, setSelectedDate] = useState("All Dates");
   const [selectedSort, setSelectedSort] = useState("Newest First");
   const [currentPage, setCurrentPage] = useState(1);
+  const [joinedMap, setJoinedMap] = useState<Record<string, boolean>>({});
 
-  // Optional: Fetch live backend data if available, fallback smoothly to reference data
+  // Fetch live backend data from MongoDB via Express API
   useEffect(() => {
     let isMounted = true;
     fetch("http://localhost:5000/upcoming-events")
@@ -151,8 +158,7 @@ export default function AllEventsPage() {
       })
       .then((data) => {
         if (isMounted && Array.isArray(data) && data.length > 0) {
-          // Normalize backend items if needed and append or merge
-          const mapped = data.map((item, index) => ({
+          const mapped: EventItem[] = data.map((item, index) => ({
             id: item._id || item.id || `backend-${index}`,
             title: item.title || "Community Event",
             category: item.category || "General",
@@ -160,14 +166,13 @@ export default function AllEventsPage() {
             time: item.time || "10:00 AM",
             location: item.location || "Bangladesh",
             description: item.description || "Community event initiative.",
-            joined: item.joined || Math.floor(Math.random() * 50) + 40,
+            joined: typeof item.joined === "number" ? item.joined : 0,
             image: item.image || "/assets/events/blanket-distribution.jpg",
           }));
           setEvents(mapped);
         }
       })
       .catch((err) => {
-        // Fallback to reference mock data when backend is not running
         console.log("Using reference events data:", err?.message);
       });
 
@@ -176,7 +181,45 @@ export default function AllEventsPage() {
     };
   }, []);
 
-  // Filter & Search Logic
+  // Sync joined events from localStorage so actual join counts show up per card
+  useEffect(() => {
+    const syncJoined = () => {
+      if (typeof window === "undefined") return;
+      const map: Record<string, boolean> = {};
+      events.forEach((ev) => {
+        if (localStorage.getItem(`unitevia_joined_event_${ev.id}`) === "true") {
+          map[String(ev.id)] = true;
+        }
+      });
+      setJoinedMap(map);
+    };
+
+    syncJoined();
+    window.addEventListener("storage", syncJoined);
+    return () => window.removeEventListener("storage", syncJoined);
+  }, [events]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCategory(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedDate(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedSort(e.target.value);
+    setCurrentPage(1);
+  };
+
+  // Filter & Search Logic with exact matching for create-event category names
   const filteredEvents = events.filter((event) => {
     // 1. Search Query filter
     const q = searchQuery.toLowerCase().trim();
@@ -187,24 +230,73 @@ export default function AllEventsPage() {
       event.description.toLowerCase().includes(q) ||
       event.category.toLowerCase().includes(q);
 
-    // 2. Category Filter
-    const matchesCategory =
-      selectedCategory === "All Categories" || event.category === selectedCategory;
+    // 2. Category Filter (Case-insensitive & flexible matching with create-event category items)
+    const eventCat = event.category.toLowerCase().trim();
+    const selCat = selectedCategory.toLowerCase().trim();
 
-    return matchesSearch && matchesCategory;
+    let matchesCategory = false;
+    if (selectedCategory === "All Categories") {
+      matchesCategory = true;
+    } else if (eventCat === selCat) {
+      matchesCategory = true;
+    } else if (selCat === "food drive" && (eventCat.includes("food") || eventCat.includes("drive"))) {
+      matchesCategory = true;
+    } else if (selCat === "cleanliness" && (eventCat.includes("clean") || eventCat.includes("cleanup"))) {
+      matchesCategory = true;
+    } else if (selCat === "donation" && (eventCat.includes("donat") || eventCat.includes("relief"))) {
+      matchesCategory = true;
+    } else if (selCat === "winter relief" && eventCat.includes("winter")) {
+      matchesCategory = true;
+    } else if (selCat === "blood camp" && eventCat.includes("blood")) {
+      matchesCategory = true;
+    } else if (selCat === "education" && eventCat.includes("edu")) {
+      matchesCategory = true;
+    } else if (selCat === "greenery" && (eventCat.includes("green") || eventCat.includes("plant"))) {
+      matchesCategory = true;
+    }
+
+    // 3. Date Filter
+    let matchesDate = true;
+    if (selectedDate !== "All Dates") {
+      const now = new Date();
+      const evDate = new Date(event.date);
+      if (!isNaN(evDate.getTime())) {
+        if (selectedDate === "This Week") {
+          const diffDays = (evDate.getTime() - now.getTime()) / (1000 * 3600 * 24);
+          matchesDate = diffDays >= 0 && diffDays <= 7;
+        } else if (selectedDate === "This Month") {
+          matchesDate =
+            evDate.getMonth() === now.getMonth() &&
+            evDate.getFullYear() === now.getFullYear();
+        } else if (selectedDate === "Next Month") {
+          const nextMonth = (now.getMonth() + 1) % 12;
+          matchesDate = evDate.getMonth() === nextMonth;
+        }
+      }
+    }
+
+    return matchesSearch && matchesCategory && matchesDate;
   });
 
   // Sort Logic
   const sortedEvents = [...filteredEvents].sort((a, b) => {
+    const aJoined = (a.joined || 0) + (joinedMap[String(a.id)] ? 1 : 0);
+    const bJoined = (b.joined || 0) + (joinedMap[String(b.id)] ? 1 : 0);
+
     if (selectedSort === "Most Popular") {
-      return b.joined - a.joined;
+      return bJoined - aJoined;
     }
     if (selectedSort === "Oldest First") {
-      return Number(a.id) - Number(b.id);
+      return String(a.id).localeCompare(String(b.id));
     }
     // Default: Newest First
-    return Number(b.id) - Number(a.id);
+    return String(b.id).localeCompare(String(a.id));
   });
+
+  // 12 Items Per Page Pagination Logic
+  const totalPages = Math.max(1, Math.ceil(sortedEvents.length / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedEvents = sortedEvents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#031109] text-white">
@@ -219,25 +311,22 @@ export default function AllEventsPage() {
       <div className="pointer-events-none absolute left-[4%] bottom-[25%] size-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
       <div className="pointer-events-none absolute right-[5%] bottom-[30%] size-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
 
-      <main className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-14">
-        {/* ── Page Header ── */}
-        <div className="text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/35 bg-[#051c11]/80 px-4 py-1.5 text-xs font-semibold tracking-wider text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
-            <CalendarDays className="size-3.5" />
-            <span>UPCOMING EVENTS</span>
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        {/* ── Header Badge & Title ── */}
+        <div className="flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-[#062416] px-4 py-1.5 text-xs font-semibold text-emerald-300 shadow-[0_0_15px_rgba(0,217,154,0.1)]">
+            <CalendarDays className="size-3.5 text-[#00d99a]" />
+            <span className="tracking-wide">UPCOMING EVENTS</span>
           </div>
 
-          {/* Main Heading */}
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-[44px]">
+          <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
             <span className="text-white">Upcoming </span>
-            <span className="bg-gradient-to-r from-[#00d99a] via-[#00f2aa] to-[#10b981] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#00d99a] to-[#00f2aa] bg-clip-text text-transparent">
               Events
             </span>
           </h1>
 
-          {/* Subtitle */}
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-neutral-400 sm:text-base">
+          <p className="mt-3 max-w-xl text-xs text-neutral-300 sm:text-sm">
             Discover and join meaningful community events happening soon in your area.
           </p>
         </div>
@@ -250,21 +339,21 @@ export default function AllEventsPage() {
               <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-emerald-400" />
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search events by title, location or keyword..."
-                className="h-11 w-full rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-10 pr-4 text-sm text-white placeholder:text-neutral-500 transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/30"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="h-11 w-full rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-10 pr-4 text-xs text-white placeholder:text-neutral-500 transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/30 sm:text-sm"
               />
             </div>
 
             {/* Filter Dropdowns */}
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-              {/* Category Dropdown */}
+              {/* Category Dropdown (Matches create-event category list exactly) */}
               <div className="relative min-w-[150px] flex-1 sm:flex-initial">
                 <Layers className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-emerald-400" />
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={handleCategoryChange}
                   className="h-11 w-full appearance-none rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-9 pr-8 text-xs font-medium text-white transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/30 sm:text-sm"
                 >
                   <option value="All Categories" className="bg-[#06180f] text-white">
@@ -273,20 +362,23 @@ export default function AllEventsPage() {
                   <option value="Winter Relief" className="bg-[#06180f] text-white">
                     Winter Relief
                   </option>
-                  <option value="Blood Camp" className="bg-[#06180f] text-white">
-                    Blood Camp
+                  <option value="Donation" className="bg-[#06180f] text-white">
+                    Donation
                   </option>
                   <option value="Education" className="bg-[#06180f] text-white">
                     Education
                   </option>
+                  <option value="Blood Camp" className="bg-[#06180f] text-white">
+                    Blood Camp
+                  </option>
+                  <option value="Cleanliness" className="bg-[#06180f] text-white">
+                    Cleanliness
+                  </option>
                   <option value="Greenery" className="bg-[#06180f] text-white">
                     Greenery
                   </option>
-                  <option value="Food Awareness" className="bg-[#06180f] text-white">
-                    Food Awareness
-                  </option>
-                  <option value="Healthcare" className="bg-[#06180f] text-white">
-                    Healthcare
+                  <option value="Food Drive" className="bg-[#06180f] text-white">
+                    Food Drive
                   </option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
@@ -297,28 +389,31 @@ export default function AllEventsPage() {
                 <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-emerald-400" />
                 <select
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={handleDateChange}
                   className="h-11 w-full appearance-none rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-9 pr-8 text-xs font-medium text-white transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/30 sm:text-sm"
                 >
                   <option value="All Dates" className="bg-[#06180f] text-white">
                     All Dates
                   </option>
+                  <option value="This Week" className="bg-[#06180f] text-white">
+                    This Week
+                  </option>
                   <option value="This Month" className="bg-[#06180f] text-white">
                     This Month
                   </option>
-                  <option value="Upcoming" className="bg-[#06180f] text-white">
-                    Upcoming
+                  <option value="Next Month" className="bg-[#06180f] text-white">
+                    Next Month
                   </option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
               </div>
 
-              {/* Sort Dropdown */}
+              {/* Sort By Dropdown */}
               <div className="relative min-w-[140px] flex-1 sm:flex-initial">
                 <ArrowUpDown className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-emerald-400" />
                 <select
                   value={selectedSort}
-                  onChange={(e) => setSelectedSort(e.target.value)}
+                  onChange={handleSortChange}
                   className="h-11 w-full appearance-none rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-9 pr-8 text-xs font-medium text-white transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/30 sm:text-sm"
                 >
                   <option value="Newest First" className="bg-[#06180f] text-white">
@@ -337,162 +432,148 @@ export default function AllEventsPage() {
           </div>
         </div>
 
-        {/* ── Events Grid (3 columns on desktop) ── */}
+        {/* ── Events Grid (3 columns on desktop, 12 items per page) ── */}
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
-          {sortedEvents.map((event) => (
-            <article
-              key={event.id}
-              className="group relative flex flex-col overflow-hidden rounded-2xl border border-emerald-500/25 bg-[#06180f]/95 p-3.5 shadow-[0_0_30px_rgba(0,217,154,0.04)] backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#00d99a]/50 hover:shadow-[0_0_35px_rgba(0,217,154,0.12)] sm:p-4"
-            >
-              {/* Event Cover Image with Top Badges */}
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-emerald-500/20 bg-[#03140b]">
-                <Image
-                  src={event.image}
-                  alt={event.title}
-                  fill
-                  unoptimized
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#06180f]/80 via-transparent to-transparent" />
+          {paginatedEvents.map((event) => {
+            const isUserJoined = Boolean(joinedMap[String(event.id)]);
+            const volunteerCount = (event.joined || 0) + (isUserJoined ? 1 : 0);
 
-                {/* Top-Left Category Badge */}
-                <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-[#03140b]/85 px-3 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md">
-                  <CategoryIcon category={event.category} />
-                  <span>{event.category}</span>
+            return (
+              <article
+                key={event.id}
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-emerald-500/25 bg-[#06180f]/95 p-3.5 shadow-[0_0_30px_rgba(0,217,154,0.04)] backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#00d99a]/50 hover:shadow-[0_0_35px_rgba(0,217,154,0.12)] sm:p-4"
+              >
+                {/* Event Cover Image with Top Badges */}
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-emerald-500/20 bg-[#03140b]">
+                  <Image
+                    src={event.image || "/assets/events/blanket-distribution.jpg"}
+                    alt={event.title}
+                    fill
+                    unoptimized
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#06180f]/80 via-transparent to-transparent" />
+
+                  {/* Top-Left Category Badge */}
+                  <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-[#03140b]/85 px-3 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md">
+                    <CategoryIcon category={event.category} />
+                    <span>{event.category}</span>
+                  </div>
+
+                  {/* Top-Right Date Badge */}
+                  <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-[#03140b]/85 px-3 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md">
+                    <CalendarDays className="size-3.5 text-[#00d99a]" />
+                    <span>{event.date}</span>
+                  </div>
                 </div>
 
-                {/* Top-Right Date Badge */}
-                <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-[#03140b]/85 px-3 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md">
-                  <CalendarDays className="size-3.5 text-[#00d99a]" />
-                  <span>{event.date}</span>
-                </div>
-              </div>
-
-              {/* Event Details Content */}
-              <div className="flex flex-1 flex-col pt-3.5">
-                {/* Title */}
-                <h3 className="line-clamp-1 text-base font-bold text-white transition group-hover:text-emerald-300 sm:text-lg">
+                {/* Event Title */}
+                <h3 className="mt-4 text-base font-bold text-white transition group-hover:text-[#00d99a] sm:text-lg">
                   {event.title}
                 </h3>
 
-                {/* Location & Time Row */}
-                <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-300">
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="size-3.5 shrink-0 text-[#00d99a]" />
+                {/* Meta details (Location, Time) */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-neutral-300">
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <MapPin className="size-3.5 shrink-0" />
                     <span className="truncate">{event.location}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="size-3.5 shrink-0 text-[#00d99a]" />
+                  </div>
+                  <div className="flex items-center gap-1 text-neutral-400">
+                    <Clock className="size-3.5 shrink-0" />
                     <span>{event.time}</span>
-                  </span>
+                  </div>
                 </div>
 
-                {/* Description */}
+                {/* Short Description */}
                 <p className="mt-2.5 line-clamp-2 text-xs leading-relaxed text-neutral-400">
                   {event.description}
                 </p>
 
-                {/* Card Footer: Joined Count & View Event Action */}
-                <div className="mt-auto flex items-center justify-between border-t border-emerald-500/15 pt-3.5">
-                  <span className="flex items-center gap-2 text-xs font-medium text-emerald-300">
-                    <Users className="size-4 text-[#00d99a]" />
-                    <span>{event.joined} Joined</span>
-                  </span>
+                {/* Bottom Footer: Real Joined Count & View Event Action */}
+                <div className="mt-4 flex items-center justify-between border-t border-emerald-500/15 pt-3.5">
+                  <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+                    <Users className="size-3.5 text-emerald-400" />
+                    <span>{volunteerCount} Joined</span>
+                  </div>
 
                   <Link
                     href={`/upcoming-events/${event.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-4 py-1.5 text-xs font-semibold text-[#032014] shadow-[0_0_15px_rgba(0,217,154,0.25)] transition hover:brightness-110"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#00d99a] px-3.5 py-1.5 text-xs font-bold text-[#032014] shadow-[0_0_12px_rgba(0,217,154,0.3)] transition hover:bg-[#00f2aa] hover:shadow-[0_0_18px_rgba(0,217,154,0.5)]"
                   >
                     <span>View Event</span>
                     <ArrowRight className="size-3.5" />
                   </Link>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
 
-        {/* ── Pagination Controls Bar ── */}
-        <div className="mt-12 flex items-center justify-center gap-2">
-          {/* Previous Button */}
-          <button
-            type="button"
-            aria-label="Previous Page"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            className="flex size-10 items-center justify-center rounded-xl border border-emerald-500/25 bg-[#051c11]/80 text-white/70 transition hover:border-emerald-400/50 hover:text-white disabled:pointer-events-none disabled:opacity-40"
-          >
-            <ChevronLeft className="size-4.5" />
-          </button>
+        {/* Empty state when no events match */}
+        {paginatedEvents.length === 0 && (
+          <div className="my-16 flex flex-col items-center justify-center rounded-2xl border border-emerald-500/20 bg-[#05180f]/80 p-8 text-center sm:p-12">
+            <Layers className="size-12 text-emerald-400/60" />
+            <h3 className="mt-4 text-lg font-bold text-white">No events found</h3>
+            <p className="mt-1 max-w-sm text-xs text-neutral-400">
+              There are currently no events matching &quot;{selectedCategory}&quot;. Try selecting another category or clear your search query.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory("All Categories");
+                setSearchQuery("");
+                setSelectedDate("All Dates");
+                setCurrentPage(1);
+              }}
+              className="mt-5 rounded-xl bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-4 py-2 text-xs font-bold text-[#032014] shadow-sm transition hover:brightness-110"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
 
-          {/* Page 1 (Active) */}
-          <button
-            type="button"
-            onClick={() => setCurrentPage(1)}
-            className={`flex size-10 items-center justify-center rounded-xl text-sm font-bold transition ${
-              currentPage === 1
-                ? "bg-gradient-to-r from-[#00d99a] to-[#00f2aa] text-[#032014] shadow-[0_0_15px_rgba(0,217,154,0.35)]"
-                : "border border-emerald-500/25 bg-[#051c11]/80 text-white hover:border-emerald-400/50"
-            }`}
-          >
-            1
-          </button>
+        {/* ── Functional 12-Items Pagination ── */}
+        {totalPages > 1 && (
+          <div className="mt-12 flex items-center justify-center gap-2">
+            {/* Previous Page Button */}
+            <button
+              type="button"
+              aria-label="Previous Page"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="flex size-10 items-center justify-center rounded-xl border border-emerald-500/25 bg-[#051c11]/80 text-white/70 transition hover:border-emerald-400/50 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+            >
+              <ChevronLeft className="size-4.5" />
+            </button>
 
-          {/* Page 2 */}
-          <button
-            type="button"
-            onClick={() => setCurrentPage(2)}
-            className={`flex size-10 items-center justify-center rounded-xl text-sm font-bold transition ${
-              currentPage === 2
-                ? "bg-gradient-to-r from-[#00d99a] to-[#00f2aa] text-[#032014] shadow-[0_0_15px_rgba(0,217,154,0.35)]"
-                : "border border-emerald-500/25 bg-[#051c11]/80 text-white hover:border-emerald-400/50"
-            }`}
-          >
-            2
-          </button>
+            {/* Dynamic Page Number Buttons */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                type="button"
+                onClick={() => setCurrentPage(pageNum)}
+                className={`flex size-10 items-center justify-center rounded-xl text-sm font-bold transition ${
+                  currentPage === pageNum
+                    ? "bg-gradient-to-r from-[#00d99a] to-[#00f2aa] text-[#032014] shadow-[0_0_15px_rgba(0,217,154,0.35)]"
+                    : "border border-emerald-500/25 bg-[#051c11]/80 text-white hover:border-emerald-400/50"
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
 
-          {/* Page 3 */}
-          <button
-            type="button"
-            onClick={() => setCurrentPage(3)}
-            className={`flex size-10 items-center justify-center rounded-xl text-sm font-bold transition ${
-              currentPage === 3
-                ? "bg-gradient-to-r from-[#00d99a] to-[#00f2aa] text-[#032014] shadow-[0_0_15px_rgba(0,217,154,0.35)]"
-                : "border border-emerald-500/25 bg-[#051c11]/80 text-white hover:border-emerald-400/50"
-            }`}
-          >
-            3
-          </button>
-
-          {/* Ellipsis */}
-          <span className="flex size-10 items-center justify-center text-sm font-semibold text-neutral-500">
-            ...
-          </span>
-
-          {/* Page 8 */}
-          <button
-            type="button"
-            onClick={() => setCurrentPage(8)}
-            className={`flex size-10 items-center justify-center rounded-xl text-sm font-bold transition ${
-              currentPage === 8
-                ? "bg-gradient-to-r from-[#00d99a] to-[#00f2aa] text-[#032014] shadow-[0_0_15px_rgba(0,217,154,0.35)]"
-                : "border border-emerald-500/25 bg-[#051c11]/80 text-white hover:border-emerald-400/50"
-            }`}
-          >
-            8
-          </button>
-
-          {/* Next Button */}
-          <button
-            type="button"
-            aria-label="Next Page"
-            disabled={currentPage === 8}
-            onClick={() => setCurrentPage((p) => Math.min(8, p + 1))}
-            className="flex size-10 items-center justify-center rounded-xl border border-emerald-500/25 bg-[#051c11]/80 text-white/70 transition hover:border-emerald-400/50 hover:text-white disabled:pointer-events-none disabled:opacity-40"
-          >
-            <ChevronRight className="size-4.5" />
-          </button>
-        </div>
+            {/* Next Page Button */}
+            <button
+              type="button"
+              aria-label="Next Page"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="flex size-10 items-center justify-center rounded-xl border border-emerald-500/25 bg-[#051c11]/80 text-white/70 transition hover:border-emerald-400/50 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+            >
+              <ChevronRight className="size-4.5" />
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );
