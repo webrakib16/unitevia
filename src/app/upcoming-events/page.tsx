@@ -141,6 +141,7 @@ const ITEMS_PER_PAGE = 12;
 
 export default function AllEventsPage() {
   const [events, setEvents] = useState<EventItem[]>(FALLBACK_REFERENCE_EVENTS);
+  const [isFetching, setIsFetching] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedDate, setSelectedDate] = useState("All Dates");
@@ -169,11 +170,24 @@ export default function AllEventsPage() {
             joined: typeof item.joined === "number" ? item.joined : 0,
             image: item.image || "/assets/events/blanket-distribution.jpg",
           }));
-          setEvents(mapped);
+
+          // Only upcoming events: exclude events whose date has passed
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          const upcomingOnly = mapped.filter((ev) => {
+            const evDate = new Date(ev.date);
+            if (Number.isNaN(evDate.getTime())) return true;
+            return evDate.getTime() >= startOfToday.getTime();
+          });
+
+          setEvents(upcomingOnly);
         }
       })
       .catch((err) => {
         console.log("Using reference events data:", err?.message);
+      })
+      .finally(() => {
+        if (isMounted) setIsFetching(false);
       });
 
     return () => {
@@ -434,7 +448,25 @@ export default function AllEventsPage() {
 
         {/* ── Events Grid (3 columns on desktop, 12 items per page) ── */}
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
-          {paginatedEvents.map((event) => {
+          {isFetching &&
+            paginatedEvents.length === 0 &&
+            Array.from({ length: 6 }, (_, i) => (
+              <div
+                key={`skeleton-${i}`}
+                className="flex flex-col overflow-hidden rounded-2xl border border-emerald-500/25 bg-[#06180f]/95 p-3.5 sm:p-4"
+                aria-hidden="true"
+              >
+                <div className="aspect-[16/10] w-full animate-pulse rounded-xl bg-[#0a2a1a]" />
+                <div className="mt-4 h-4 w-2/3 animate-pulse rounded-md bg-[#0a2a1a]" />
+                <div className="mt-3 h-3 w-1/2 animate-pulse rounded-md bg-[#0a2a1a]" />
+                <div className="mt-5 flex items-center justify-between border-t border-emerald-500/15 pt-3.5">
+                  <div className="h-3 w-20 animate-pulse rounded-md bg-[#0a2a1a]" />
+                  <div className="h-7 w-24 animate-pulse rounded-xl bg-[#0a2a1a]" />
+                </div>
+              </div>
+            ))}
+
+          {!isFetching && paginatedEvents.map((event) => {
             const isUserJoined = Boolean(joinedMap[String(event.id)]);
             const volunteerCount = (event.joined || 0) + (isUserJoined ? 1 : 0);
 
@@ -510,7 +542,7 @@ export default function AllEventsPage() {
         </div>
 
         {/* Empty state when no events match */}
-        {paginatedEvents.length === 0 && (
+        {!isFetching && paginatedEvents.length === 0 && (
           <div className="my-16 flex flex-col items-center justify-center rounded-2xl border border-emerald-500/20 bg-[#05180f]/80 p-8 text-center sm:p-12">
             <Layers className="size-12 text-emerald-400/60" />
             <h3 className="mt-4 text-lg font-bold text-white">No events found</h3>

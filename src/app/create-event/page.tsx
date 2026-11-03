@@ -188,10 +188,21 @@ export default function AddEventPage() {
     date: "",
     time: "",
     location: "",
-    email: "",
     image: "",
     description: "",
   });
+
+  // Creator email comes from the logged-in user, never a manual input
+  const creatorEmail =
+    session?.user?.email ||
+    (() => {
+      if (typeof window === "undefined") return "";
+      try {
+        return JSON.parse(localStorage.getItem("unitevia_user") || "null")?.email || "";
+      } catch {
+        return "";
+      }
+    })();
 
   const [dateError, setDateError] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -273,36 +284,38 @@ export default function AddEventPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          // Persist the creator's logged-in email with the event data
+          email: creatorEmail,
+        }),
       });
+      if (!res.ok) {
+        throw new Error(
+          `Failed to create event (${res.status} ${res.statusText}).`
+        );
+      }
 
-      const data = await res.json().catch(() => null);
-      console.log("Server Response:", data);
-      console.log("Form Data Submitted:", formData);
-    } catch (err) {
-      console.log("Backend request handled:", err);
-    } finally {
-      setIsSubmitting(false);
-      setSubmitted(true);
-
-      // Trigger shadcn success toast
       toast.add({
         title: "Event Created Successfully!",
         description: `"${formData.title}" has been successfully created for ${new Date(selectedDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at ${formData.time || "TBD"}.`,
         type: "success",
       });
+      setSubmitted(true);
 
-      // Reset form fields
-      setFormData({
-        title: "",
-        category: "",
-        date: "",
-        time: "",
-        location: "",
-        email: "",
-        image: "",
-        description: "",
+      // Redirect to Upcoming Events after successful creation
+      router.push("/upcoming-events");
+    } catch (err) {
+      toast.add({
+        title: "Event Not Created",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Something went wrong while creating your event. Please try again.",
+        type: "error",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -531,24 +544,13 @@ export default function AddEventPage() {
                   </div>
                 </div>
 
-                {/* Email */}
-                <div>
-                  <label htmlFor="email" className="mb-2 block text-xs font-medium text-white sm:text-sm">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative flex items-center">
-                    <Mail className="pointer-events-none absolute left-3.5 size-4 text-neutral-400" />
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="Enter contact email (e.g. you@example.com)"
-                      className="h-11 w-full rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-10 pr-4 text-sm text-white placeholder:text-neutral-500 transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/40"
-                    />
-                  </div>
+                {/* Email note (creator email is taken from the logged-in account) */}
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-[#031109]/90 px-3.5 py-2.5">
+                  <Mail className="size-4 shrink-0 text-[#00d99a]" />
+                  <p className="truncate text-xs text-neutral-400">
+                    Creator email:{" "}
+                    <span className="font-medium text-white">{creatorEmail || "—"}</span>
+                  </p>
                 </div>
 
                 {/* Thumbnail Image URL */}

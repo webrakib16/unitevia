@@ -140,6 +140,7 @@ export default function JoinedEventsPage() {
   const { data: session, isPending } = authClient.useSession();
 
   const [events, setEvents] = useState<EventItem[]>(INITIAL_DEMO_JOINED_EVENTS);
+  const [isFetching, setIsFetching] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedSort, setSelectedSort] = useState("Latest");
@@ -161,7 +162,9 @@ export default function JoinedEventsPage() {
     }
   }, [isPending, session, router]);
 
-  // Fetch backend events and filter to those the user joined in localStorage
+  // Fetch backend events and keep only those containing the logged-in user's
+  // email in their joinedUsers array (persisted in the DB event document).
+  // LocalStorage join flags are no longer the source of truth.
   useEffect(() => {
     let isMounted = true;
     fetch("http://localhost:5000/upcoming-events")
@@ -170,38 +173,61 @@ export default function JoinedEventsPage() {
         return res.json();
       })
       .then((data) => {
-        if (isMounted && Array.isArray(data) && data.length > 0) {
-          const userJoined = data
-            .filter((item) => {
-              const id = String(item._id || item.id);
-              return typeof window !== "undefined" && localStorage.getItem(`unitevia_joined_event_${id}`) === "true";
-            })
-            .map((item, index) => ({
-              id: String(item._id || item.id || `event-${index}`),
-              _id: String(item._id || item.id || `event-${index}`),
-              title: item.title || "Community Event",
-              category: item.category || "General",
-              date: item.date || "Upcoming",
-              time: item.time || "10:00 AM",
-              location: item.location || "Bangladesh",
-              description: item.description || "Community event initiative.",
-              image: item.image || "/assets/events/blanket-distribution.jpg",
-            }));
+        if (!isMounted || !Array.isArray(data)) return;
 
-          // If user has actual joined events in localStorage, use them; otherwise keep demo reference
-          if (userJoined.length > 0) {
-            setEvents(userJoined);
-          }
+        const stored = localStorage.getItem("unitevia_user");
+        let storedUser: { email?: string } | null = null;
+        try {
+          storedUser = stored ? JSON.parse(stored) : null;
+        } catch {
+          storedUser = null;
         }
+        const userEmail = (
+          session?.user?.email ||
+          storedUser?.email ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
+
+        if (!userEmail) {
+          setEvents([]);
+          return;
+        }
+
+        const userJoined: EventItem[] = data
+          .filter(
+            (item) =>
+              (item.joinedUsers || []).some(
+                (u: { email?: string }) =>
+                  u?.email?.trim().toLowerCase() === userEmail
+              )
+          )
+          .map((item, index) => ({
+            id: String(item._id || item.id || `event-${index}`),
+            _id: String(item._id || item.id || `event-${index}`),
+            title: item.title || "Community Event",
+            category: item.category || "General",
+            date: item.date || "Upcoming",
+            time: item.time || "10:00 AM",
+            location: item.location || "Bangladesh",
+            description: item.description || "Community event initiative.",
+            image: item.image || "/assets/events/blanket-distribution.jpg",
+          }));
+
+        setEvents(userJoined);
       })
       .catch((err) => {
-        console.log("Using initial joined demo events:", err?.message);
+        console.log("Backend offline, using fallback joined events:", err?.message);
+      })
+      .finally(() => {
+        if (isMounted) setIsFetching(false);
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [session?.user?.email]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -218,19 +244,71 @@ export default function JoinedEventsPage() {
     setCurrentPage(1);
   };
 
-  // Handle Cancel Participation
-  const handleCancelJoin = (eventId: string, eventTitle: string) => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(`unitevia_joined_event_${eventId}`);
+  // Handle Cancel Participation — removes the user from joinedUsers via the
+  // existing GET + PATCH endpoints, so the DB stays the source of truth.
+  const handleCancelJoin = async (eventId: string, eventTitle: string) => {
+    const stored = localStorage.getItem("unitevia_user");
+    let storedUser: { email?: string } | null = null;
+    try {
+      storedUser = stored ? JSON.parse(stored) : null;
+    } catch {
+      storedUser = null;
+    }
+    const userEmail = (session?.user?.email || storedUser?.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!userEmail) {
+      toast.add({
+        title: "Action Not Available",
+        description: "Please log in to cancel your participation.",
+        type: "error",
+      });
+      return;
     }
 
-    setEvents((prev) => prev.filter((ev) => ev.id !== eventId));
+    try {
+      // 1. Fetch the event's current joinedUsers
+      const freshRes = await fetch(`http://localhost:5000/event/${eventId}`);
+      if (!freshRes.ok) throw new Error("Network error");
+      const freshEvent = (await freshRes.json()) as {
+        joined?: number;
+        joinedUsers?: Array<{ email?: string }>;
+      };
 
-    toast.add({
-      title: "Participation Cancelled",
-      description: `You have cancelled your participation in "${eventTitle}".`,
-      type: "info",
-    });
+      const remaining =
+        (freshEvent?.joinedUsers || []).filter(
+          (u) => u?.email?.trim().toLowerCase() !== userEmail
+        ) || [];
+
+      // 2. Persist the updated list and count
+      const patchRes = await fetch(`http://localhost:5000/event/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          joinedUsers: remaining,
+          joined: Math.max(0, (freshEvent?.joined || 0) - 1),
+        }),
+      });
+      if (!patchRes.ok) throw new Error("Network error");
+
+      // 3. Update UI + localStorage cache
+      setEvents((prev) => prev.filter((ev) => ev.id !== eventId));
+      localStorage.removeItem(`unitevia_joined_event_${eventId}`);
+
+      toast.add({
+        title: "Participation Cancelled",
+        description: `You have cancelled your participation in "${eventTitle}".`,
+        type: "info",
+      });
+    } catch {
+      toast.add({
+        title: "Cancellation Failed",
+        description:
+          "Could not cancel your participation right now. Please try again.",
+        type: "error",
+      });
+    }
   };
 
   // Handle Add to Calendar
@@ -301,13 +379,17 @@ export default function JoinedEventsPage() {
     return matchesSearch && matchesCategory;
   });
 
-  // Sort
+  // Sort — by event date (latest date first by default)
+  const parseDate = (val: string) => {
+    const t = new Date(val).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
   const sortedEvents = [...filteredEvents].sort((a, b) => {
     if (selectedSort === "Oldest") {
-      return a.id.localeCompare(b.id);
+      return parseDate(a.date) - parseDate(b.date);
     }
     // Default: Latest
-    return b.id.localeCompare(a.id);
+    return parseDate(b.date) - parseDate(a.date);
   });
 
   // Pagination (6 items per page)
@@ -425,7 +507,25 @@ export default function JoinedEventsPage() {
 
         {/* ── Horizontal Event Cards List ── */}
         <div className="mt-6 space-y-4">
-          {paginatedEvents.map((ev) => (
+          {isFetching &&
+            paginatedEvents.length === 0 &&
+            Array.from({ length: 3 }, (_, i) => (
+              <div
+                key={`skeleton-${i}`}
+                className="flex flex-col gap-4 rounded-2xl border border-emerald-500/20 bg-[#06180f]/90 p-4 md:flex-row md:items-center"
+                aria-hidden="true"
+              >
+                <div className="h-24 w-full shrink-0 animate-pulse rounded-xl bg-[#0a2a1a] sm:w-44" />
+                <div className="flex-1 space-y-2.5">
+                  <div className="h-4 w-2/3 animate-pulse rounded-md bg-[#0a2a1a]" />
+                  <div className="h-3 w-1/3 animate-pulse rounded-md bg-[#0a2a1a]" />
+                  <div className="h-3 w-full animate-pulse rounded-md bg-[#0a2a1a]" />
+                </div>
+                <div className="h-8 w-40 shrink-0 animate-pulse rounded-xl bg-[#0a2a1a]" />
+              </div>
+            ))}
+
+          {!isFetching && paginatedEvents.map((ev) => (
             <div
               key={ev.id}
               className="flex flex-col gap-4 rounded-2xl border border-emerald-500/20 bg-[#06180f]/90 p-4 shadow-sm backdrop-blur-md transition hover:border-emerald-500/40 md:flex-row md:items-center md:justify-between"
@@ -514,7 +614,7 @@ export default function JoinedEventsPage() {
             </div>
           ))}
 
-          {paginatedEvents.length === 0 && (
+          {!isFetching && paginatedEvents.length === 0 && (
             <div className="py-16 text-center">
               <Users className="mx-auto size-12 text-emerald-400/40" />
               <h3 className="mt-3 text-lg font-bold text-white">No joined events</h3>

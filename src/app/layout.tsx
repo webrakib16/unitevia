@@ -26,8 +26,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${poppins.variable} ${geistMono.variable} dark h-full antialiased`}
+      suppressHydrationWarning
+      className={`${poppins.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Pre-paint the resolved theme (light/dark/system) before hydration
+            to prevent theme flashing. Mode persisted by src/components/ThemeToggle.tsx */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("unitevia_theme");if(t!=="light"&&t!=="dark"){t="system"}var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.add(d?"dark":"light")}catch(e){document.documentElement.classList.add("dark")}`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-[#050a08] text-white">
         <Navbar />
         <main className="flex-1">{children}</main>

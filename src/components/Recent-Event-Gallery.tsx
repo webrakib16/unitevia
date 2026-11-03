@@ -183,9 +183,26 @@ export function RecentEventGallery() {
       })
       .then((data) => {
         if (isMounted && Array.isArray(data) && data.length > 0) {
-          // Take the latest 6 created events
-          const latestSix = data.slice(-6).reverse();
-          const mapped: GalleryEvent[] = latestSix.map((item, index) => ({
+          // Keep only future events, show the 6 soonest upcoming by event date
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+
+          const candidates = data
+            .map((item) => {
+              const d = new Date(item.date);
+              return {
+                item,
+                // Unknown dates sort last
+                time: Number.isNaN(d.getTime())
+                  ? Number.MAX_SAFE_INTEGER
+                  : d.getTime(),
+              };
+            })
+            .filter((entry) => entry.time >= startOfToday.getTime())
+            .sort((a, b) => a.time - b.time)
+            .slice(0, 6);
+
+          const mapped: GalleryEvent[] = candidates.map(({ item }, index) => ({
             id: String(item._id || item.id || `gallery-${index}`),
             title: item.title || "Community Event",
             category: item.category || "General",
@@ -195,13 +212,7 @@ export function RecentEventGallery() {
             image: item.image || "/assets/events/blanket-distribution.jpg",
           }));
 
-          // If there are less than 6 created events, fill remaining with defaults
-          if (mapped.length < 6) {
-            const combined = [...mapped, ...DEFAULT_GALLERY_EVENTS.slice(mapped.length, 6)];
-            setEvents(combined);
-          } else {
-            setEvents(mapped);
-          }
+          setEvents(mapped);
         }
       })
       .catch((err) => {

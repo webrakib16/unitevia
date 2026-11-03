@@ -8,9 +8,12 @@ import {
   ChevronDown,
   ChevronUp,
   LogOut,
+  Pencil,
   PlusCircle,
   Settings,
   CheckCircle2,
+  User,
+  X,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "@/components/ui/toast";
@@ -33,6 +36,10 @@ export function Profile({ user }: ProfileProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+  const [updateName, setUpdateName] = useState("");
+  const [updateImage, setUpdateImage] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click or Escape key
@@ -77,7 +84,7 @@ export function Profile({ user }: ProfileProps) {
         type: "success",
       });
       setIsOpen(false);
-      router.push("/login");
+      router.push("/");
       router.refresh();
     } catch (err: unknown) {
       const msg =
@@ -95,6 +102,69 @@ export function Profile({ user }: ProfileProps) {
   const displayName = user?.name?.trim() || "Dolore expedita dese";
   const displayEmail = user?.email?.trim() || "mypit@mailinator.com";
   const avatarSrc = user?.image || DEFAULT_AVATAR;
+
+  // ── Profile view & update (uses Better Auth's existing update-user API) ──
+  const openUpdateModal = () => {
+    setUpdateName(user?.name?.trim() || "");
+    setUpdateImage(user?.image || "");
+    setIsOpen(false);
+    setIsUpdateOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (isSavingProfile) return;
+    if (!updateName.trim()) {
+      toast.add({
+        title: "Name Required",
+        description: "Please enter your display name.",
+        type: "error",
+      });
+      return;
+    }
+    setIsSavingProfile(true);
+    try {
+      const res = await authClient.updateUser({
+        name: updateName.trim(),
+        image: updateImage.trim() || undefined,
+      });
+      if (res?.error) {
+        throw new Error(res.error.message || "Failed to update profile.");
+      }
+
+      // Keep the localStorage user cache in sync
+      try {
+        const stored = localStorage.getItem("unitevia_user");
+        if (stored) {
+          const cached = JSON.parse(stored);
+          cached.name = updateName.trim();
+          if (updateImage.trim()) cached.image = updateImage.trim();
+          localStorage.setItem("unitevia_user", JSON.stringify(cached));
+          window.dispatchEvent(new Event("storage"));
+        }
+      } catch {
+        // cache sync is best-effort
+      }
+
+      toast.add({
+        title: "Profile Updated",
+        description: "Your name and profile picture have been updated.",
+        type: "success",
+      });
+      setIsUpdateOpen(false);
+      router.refresh();
+    } catch (err) {
+      toast.add({
+        title: "Profile Update Failed",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Could not update your profile. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   return (
     <div className="relative flex items-center gap-3" ref={containerRef}>
@@ -201,6 +271,16 @@ export function Profile({ user }: ProfileProps) {
                 <CheckCircle2 className="size-5 text-[#00d99a] shrink-0" />
                 <span>Joined Events</span>
               </Link>
+
+              {/* Update Profile */}
+              <button
+                type="button"
+                onClick={openUpdateModal}
+                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <User className="size-5 text-[#a78bfa] shrink-0" />
+                <span>Update Profile</span>
+              </button>
             </div>
 
             {/* Thin Horizontal Divider */}
@@ -216,6 +296,109 @@ export function Profile({ user }: ProfileProps) {
               <LogOut className="size-5 shrink-0 text-[#f87171]" />
               <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
             </button>
+          </div>
+        )}
+
+        {/* ── Update Profile Modal ── */}
+        {isUpdateOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Update Profile"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+          >
+            <div className="relative w-full max-w-[440px] rounded-[26px] p-px bg-gradient-to-br from-emerald-400/70 via-emerald-500/30 to-emerald-900/20 shadow-[0_0_60px_rgba(0,0,0,0.85)]">
+              <div className="relative w-full rounded-[25px] bg-[#08150f] p-6 sm:p-7 text-white">
+                {/* Header */}
+                <div className="flex items-start gap-3.5">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/40 bg-[#072416]/80 text-[#00d99a]">
+                    <Pencil className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg font-bold tracking-tight sm:text-xl">
+                      Update Profile
+                    </h2>
+                    <p className="mt-0.5 text-xs text-neutral-400">
+                      Update your display name and profile picture.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsUpdateOpen(false)}
+                    aria-label="Close"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-emerald-500/25 bg-[#061f13] text-neutral-400 transition hover:bg-[#09291b] hover:text-white"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+
+                {/* Avatar preview */}
+                <div className="mt-5 flex items-center gap-3.5">
+                  <div className="relative size-14 shrink-0 overflow-hidden rounded-full ring-2 ring-[#00d99a]/60 bg-emerald-950">
+                    <Image
+                      src={updateImage || DEFAULT_AVATAR}
+                      alt="Profile preview"
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  </div>
+                  <p className="min-w-0 flex-1 truncate text-xs text-neutral-400">
+                    {displayEmail}
+                  </p>
+                </div>
+
+                {/* Name */}
+                <div className="mt-4">
+                  <label htmlFor="profile-name" className="mb-1.5 block text-xs font-semibold text-neutral-200">
+                    Display Name
+                  </label>
+                  <input
+                    id="profile-name"
+                    type="text"
+                    value={updateName}
+                    onChange={(e) => setUpdateName(e.target.value)}
+                    placeholder="Your display name"
+                    className="h-11 w-full rounded-xl border border-emerald-500/25 bg-[#03130a]/80 px-3.5 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20"
+                  />
+                </div>
+
+                {/* Photo URL */}
+                <div className="mt-3.5">
+                  <label htmlFor="profile-image" className="mb-1.5 block text-xs font-semibold text-neutral-200">
+                    Profile Picture URL
+                  </label>
+                  <input
+                    id="profile-image"
+                    type="url"
+                    value={updateImage}
+                    onChange={(e) => setUpdateImage(e.target.value)}
+                    placeholder="https://example.com/photo.jpg"
+                    className="h-11 w-full rounded-xl border border-emerald-500/25 bg-[#03130a]/80 px-3.5 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="mt-6 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsUpdateOpen(false)}
+                    className="rounded-full border border-emerald-500/25 bg-[#04160d] px-5 py-2.5 text-xs sm:text-sm font-semibold text-neutral-200 transition hover:bg-[#072417] hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-6 py-2.5 text-xs sm:text-sm font-bold text-[#032014] shadow-[0_0_20px_rgba(0,217,154,0.35)] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Pencil className="size-3.5" />
+                    <span>{isSavingProfile ? "Saving..." : "Save Changes"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -128,3 +128,37 @@
     @apply font-sans;
   }
 }
+
+/* ── Light theme surface overrides (ThemeToggle applies class to <html>) ──
+   Dark backgrounds are hardcoded across components, so light mode remaps the
+   dark surface palette globally; accent colors (#00d99a etc.) are unchanged. */
+html.light body {
+  background-color: #f2f7f4;
+  color: #0d211a;
+}
+html.light [class*="bg-[#03"],
+html.light [class*="bg-[#04"],
+html.light [class*="bg-[#05"],
+html.light [class*="bg-[#06"],
+html.light [class*="bg-[#08"] {
+  background-color: #ffffff;
+}
+html.light [class*="bg-[#050a08]"],
+html.light [class*="bg-[#031109]"] {
+  background-color: #f2f7f4;
+}
+html.light [class*="text-white"] {
+  color: #10261d;
+}
+html.light [class*="text-neutral-3"] {
+  color: #43584e;
+}
+html.light [class*="text-neutral-4"] {
+  color: #5f756b;
+}
+html.light [class*="text-neutral-5"] {
+  color: #71877d;
+}
+html.light [class*="[color-scheme:dark]"] {
+  color-scheme: light;
+}

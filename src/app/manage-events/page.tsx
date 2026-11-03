@@ -43,6 +43,8 @@ interface EventItem {
   description: string;
   image: string;
   joined?: number;
+  /** Creator email stored on the event document by Create Event. */
+  email?: string;
 }
 
 const INITIAL_DEMO_EVENTS: EventItem[] = [
@@ -144,6 +146,7 @@ export default function ManageEventsPage() {
   const { data: session, isPending } = authClient.useSession();
 
   const [events, setEvents] = useState<EventItem[]>(INITIAL_DEMO_EVENTS);
+  const [isFetching, setIsFetching] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedSort, setSelectedSort] = useState("Latest");
@@ -180,6 +183,22 @@ export default function ManageEventsPage() {
       })
       .then((data) => {
         if (isMounted && Array.isArray(data) && data.length > 0) {
+          const stored = localStorage.getItem("unitevia_user");
+          let storedUser: { email?: string } | null = null;
+          try {
+            storedUser = stored ? JSON.parse(stored) : null;
+          } catch {
+            storedUser = null;
+          }
+          const userEmail = (session?.user?.email || storedUser?.email || "")
+            .trim()
+            .toLowerCase();
+
+          if (!userEmail) {
+            setEvents([]);
+            return;
+          }
+
           const mapped: EventItem[] = data.map((item, index) => ({
             id: String(item._id || item.id || `event-${index}`),
             _id: String(item._id || item.id || `event-${index}`),
@@ -191,18 +210,29 @@ export default function ManageEventsPage() {
             description: item.description || "Community event initiative.",
             image: item.image || "/assets/events/blanket-distribution.jpg",
             joined: item.joined || 0,
+            email: item.email || "",
           }));
-          setEvents(mapped);
+
+          // Only show events created by the currently logged-in user
+          // (creator email is stored on the event document by Create Event)
+          setEvents(
+            mapped.filter(
+              (ev) => ev.email?.trim().toLowerCase() === userEmail
+            )
+          );
         }
       })
       .catch((err) => {
         console.log("Using initial demo events:", err?.message);
+      })
+      .finally(() => {
+        if (isMounted) setIsFetching(false);
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [session?.user?.email]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -449,7 +479,25 @@ export default function ManageEventsPage() {
 
         {/* ── Horizontal Event Cards List ── */}
         <div className="mt-6 space-y-4">
-          {paginatedEvents.map((ev) => (
+          {isFetching &&
+            paginatedEvents.length === 0 &&
+            Array.from({ length: 3 }, (_, i) => (
+              <div
+                key={`skeleton-${i}`}
+                className="flex flex-col gap-4 rounded-2xl border border-emerald-500/20 bg-[#06180f]/90 p-4 md:flex-row md:items-center"
+                aria-hidden="true"
+              >
+                <div className="h-24 w-full shrink-0 animate-pulse rounded-xl bg-[#0a2a1a] sm:w-44" />
+                <div className="flex-1 space-y-2.5">
+                  <div className="h-4 w-2/3 animate-pulse rounded-md bg-[#0a2a1a]" />
+                  <div className="h-3 w-1/3 animate-pulse rounded-md bg-[#0a2a1a]" />
+                  <div className="h-3 w-full animate-pulse rounded-md bg-[#0a2a1a]" />
+                </div>
+                <div className="h-8 w-40 shrink-0 animate-pulse rounded-xl bg-[#0a2a1a]" />
+              </div>
+            ))}
+
+          {!isFetching && paginatedEvents.map((ev) => (
             <div
               key={ev.id}
               className="flex flex-col gap-4 rounded-2xl border border-emerald-500/20 bg-[#06180f]/90 p-4 shadow-sm backdrop-blur-md transition hover:border-emerald-500/40 md:flex-row md:items-center md:justify-between"
@@ -538,7 +586,7 @@ export default function ManageEventsPage() {
             </div>
           ))}
 
-          {paginatedEvents.length === 0 && (
+          {!isFetching && paginatedEvents.length === 0 && (
             <div className="py-16 text-center">
               <Layers className="mx-auto size-12 text-emerald-400/40" />
               <h3 className="mt-3 text-lg font-bold text-white">No events found</h3>

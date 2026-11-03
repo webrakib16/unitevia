@@ -17,37 +17,10 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Handle form submission and authentication logic here
-
-    const formData = new FormData(e.target);
-    const user = Object.fromEntries(formData.entries()) as {
-        email: string;
-        password: string;
-    };
-    const { data, error } = await authClient.signIn.email({
-      ...user,
-    });
-    if (data) {
-      if (typeof window !== "undefined" && data.user) {
-        localStorage.setItem("unitevia_user", JSON.stringify(data.user));
-      }
-
-      toast.add({
-        title: "Welcome Back!",
-        description: "Successfully logged in.",
-        type: "success",
-      });
-      router.push("/");
-      return;
-    }
-    if (error) {
-      console.log(error);
-    }
-
-    // Validation for empty fields
+    // Validation for empty fields (must run BEFORE any auth request)
     if (!email.trim() || !password) {
       toast.add({
         title: "Required Fields",

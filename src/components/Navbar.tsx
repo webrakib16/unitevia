@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogIn, LogOut, Moon } from "lucide-react";
+import { LogIn, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Profile, type ProfileUser } from "@/components/Profile";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "@/components/ui/toast";
 
 export function Navbar() {
@@ -48,10 +49,10 @@ export function Navbar() {
         description: "You have been logged out successfully.",
         type: "success",
       });
-      router.push("/login");
+      router.push("/");
       router.refresh();
     } catch {
-      router.push("/login");
+      router.push("/");
     } finally {
       setIsLoggingOut(false);
     }
@@ -117,14 +118,8 @@ export function Navbar() {
 
         {/* ── Right Action Elements ── */}
         <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Theme button */}
-          <button
-            type="button"
-            aria-label="Toggle theme"
-            className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-black/20 text-neutral-300 transition hover:bg-white/10 hover:text-white"
-          >
-            <Moon className="size-4" />
-          </button>
+          {/* Theme toggle (dedicated component) */}
+          <ThemeToggle />
 
           {/* Conditional Login / (Profile + Logout) */}
           {user ? (

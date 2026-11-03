@@ -15,6 +15,7 @@ import {
   Type,
   X,
 } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,15 @@ const TIME_OPTIONS = [
   "08:00 PM",
 ];
 
+/** Parses a display-formatted date ("Nov 7, 2026") + time ("02:00 PM") into a timestamp. */
+function parseEventDateTime(dateStr: string, timeStr: string): number {
+  const combined = new Date(`${dateStr} ${timeStr}`);
+  if (!Number.isNaN(combined.getTime())) return combined.getTime();
+  const dayEnd = new Date(`${dateStr} 23:59:59`);
+  if (!Number.isNaN(dayEnd.getTime())) return dayEnd.getTime();
+  return NaN;
+}
+
 export function EditEventDetails({
   initialValues,
   onSave,
@@ -79,6 +89,7 @@ export function EditEventDetails({
   const [urlInputValue, setUrlInputValue] = useState(
     initialValues.thumbnailUrl
   );
+  const [dateError, setDateError] = useState("");
 
   const handleUrlChange = (val: string) => {
     setUrlInputValue(val);
@@ -91,6 +102,30 @@ export function EditEventDetails({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ── Future-date validation (same rule as Create Event: no past dates) ──
+    const selectedTime = parseEventDateTime(form.date, form.time || "");
+    if (Number.isNaN(selectedTime)) {
+      setDateError("Please enter a valid event date (e.g. Nov 7, 2026).");
+      toast.add({
+        title: "Invalid Event Date",
+        description: "Please enter a valid event date like \"Nov 7, 2026\".",
+        type: "error",
+      });
+      return;
+    }
+    if (selectedTime <= Date.now()) {
+      setDateError("Event date and time must be in the future, not in the past.");
+      toast.add({
+        title: "Invalid Event Date & Time",
+        description:
+          "Event date and time must be set in the future. Please pick an upcoming date and time.",
+        type: "error",
+      });
+      return;
+    }
+
+    setDateError("");
     await onSave({ ...form, thumbnailUrl: urlInputValue });
   };
 
@@ -227,6 +262,16 @@ export function EditEventDetails({
               </div>
             </div>
           </div>
+
+          {/* Inline Date validation warning */}
+          {dateError && (
+            <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-950/40 px-3.5 py-2 text-xs text-rose-300">
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                !
+              </span>
+              <span>{dateError}</span>
+            </div>
+          )}
 
           {/* 3. Event Time & Location (2 Columns) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -1,60 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { EventsCarousel } from "@/components/Events-Carousel";
-import type { CommunityEvent } from "@/data/events";
+import { DEMO_EVENTS, type CommunityEvent } from "@/data/events";
 
 /**
  * Section wrapper for the 3D event carousel.
  *
- * Dynamically fetches the first 6 events created in the database via the API
- * (http://localhost:5000/upcoming-events). If no events exist yet, an empty
- * card slot is displayed until events are created.
+ * Static gallery: showcases photographs of community service events from the
+ * static demo data source (src/data/events.ts) — no API integration.
  */
 export function RecentEvents() {
-  const [events, setEvents] = useState<CommunityEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    fetch("http://localhost:5000/upcoming-events")
-      .then((res) => {
-        if (!res.ok) throw new Error("Network response was not ok");
-        return res.json();
-      })
-      .then((data) => {
-        if (!isMounted) return;
-        if (Array.isArray(data) && data.length > 0) {
-          // Take the first 6 created events
-          const mapped: CommunityEvent[] = data.slice(0, 6).map((item, index) => ({
-            id: item._id || item.id || index + 1,
-            slug: item.slug || `event-${item._id || index + 1}`,
-            title: item.title || "Community Event",
-            category: item.category || "General",
-            image: item.image || "/assets/events/blanket-distribution.jpg",
-            date: item.date || "",
-            location: item.location || "Community Location",
-            description: item.description || "Community event initiative.",
-            organizer: item.email || item.organizer || "Community Organizer",
-          }));
-          setEvents(mapped);
-        } else {
-          setEvents([]);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch events for past gallery:", err?.message);
-        if (isMounted) setEvents([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const events: CommunityEvent[] = DEMO_EVENTS;
+  const loading = false;
 
   return (
     <section className="relative overflow-hidden px-4 py-16 sm:px-6 md:py-24">

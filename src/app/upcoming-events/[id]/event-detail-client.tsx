@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/toast";
+import { authClient } from "@/lib/auth-client";
 import { EditEventDetails, type EditEventForm } from "@/components/EditEventDetails";
 import { DeleteEventDetails } from "@/components/DeleteEventDetails";
 import {
@@ -40,6 +41,13 @@ export interface EventData {
   status?: string;
   image?: string;
   thumbnailUrl?: string;
+  /** Users who joined this event, persisted in the backend event document. */
+  joinedUsers?: Array<{
+    name?: string;
+    email?: string;
+    image?: string;
+    joinedAt?: string;
+  }>;
 }
 
 function FoodBowlIcon() {
@@ -146,8 +154,36 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
     }
   };
    
-  // Subscribe to localStorage to check if user has already joined (1 user only join 1 time per event)
-  const isStoredJoined = useSyncExternalStore(
+  // Current logged-in user (session first, localStorage cache as fallback)
+  const { data: session } = authClient.useSession();
+  const [localUser, setLocalUser] = useState<{
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  } | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
+
+  useEffect(() => {
+    const syncUser = () => {
+      try {
+        const stored = localStorage.getItem("unitevia_user");
+        setLocalUser(stored ? JSON.parse(stored) : null);
+      } catch {
+        setLocalUser(null);
+      }
+    };
+
+    syncUser();
+    window.addEventListener("storage", syncUser);
+    return () => window.removeEventListener("storage", syncUser);
+  }, []);
+
+  const currentUser = session?.user || localUser;
+  const myEmail = currentUser?.email?.trim().toLowerCase() || null;
+
+  // Subscribe to localStorage join flags (used only as an instant UI cache; the
+  // source of truth for joining is joinedUsers persisted on the event document)
+  const isCachedJoined = useSyncExternalStore(
     (callback) => {
       window.addEventListener("storage", callback);
       return () => window.removeEventListener("storage", callback);
@@ -162,10 +198,17 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
     () => false
   );
 
-  const isJoined = isStoredJoined || joinedOverride;
-  const volunteersCount = (currentEvent.joined || 0) + (isJoined ? 1 : 0);
+  const dbJoined =
+    !!myEmail &&
+    (currentEvent.joinedUsers || []).some(
+      (u) => u?.email?.trim().toLowerCase() === myEmail
+    );
 
-  const handleJoin = () => {
+  const isJoined = dbJoined || isCachedJoined || joinedOverride;
+  const volunteersCount =
+    (currentEvent.joined || 0) + (!dbJoined && (isCachedJoined || joinedOverride) ? 1 : 0);
+
+  const handleJoin = async () => {
     if (isJoined) {
       toast.add({
         title: "Already Joined",
@@ -175,19 +218,113 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       return;
     }
 
-    const storageKey = `unitevia_joined_event_${currentEvent._id}`;
-    if (typeof window !== "undefined") {
-      localStorage.setItem(storageKey, "true");
+    // Must be logged in to join
+    if (!myEmail) {
+      toast.add({
+        title: "Login Required",
+        description: "Please log in to join this event.",
+        type: "error",
+      });
+      router.push("/login");
+      return;
     }
 
-    setJoinedOverride(true);
+    setIsJoining(true);
 
-    // Trigger shadcn success toast
-    toast.add({
-      title: "Joined Successfully!",
-      description: `You have successfully joined "${currentEvent.title}". We look forward to seeing you there!`,
-      type: "success",
-    });
+    try {
+      // 1. Re-fetch the event so the write goes on top of the latest joinedUsers
+      const freshRes = await fetch(
+        `http://localhost:5000/event/${currentEvent._id}`
+      );
+      if (!freshRes.ok) {
+        throw new Error(
+          `Could not verify event status (${freshRes.status} ${freshRes.statusText}).`
+        );
+      }
+      const freshEvent = (await freshRes.json()) as EventData;
+
+      // Reject duplicates server-side even if the UI state missed them
+      const existingUsers = freshEvent?.joinedUsers || [];
+      if (
+        existingUsers.some(
+          (u) => u?.email?.trim().toLowerCase() === myEmail
+        )
+      ) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            `unitevia_joined_event_${currentEvent._id}`,
+            "true"
+          );
+        }
+        setCurrentEvent({ ...freshEvent });
+        setJoinedOverride(true);
+        toast.add({
+          title: "Already Joined",
+          description: `You have already joined "${currentEvent.title}".`,
+          type: "info",
+        });
+        return;
+      }
+
+      // 2. Persist join: user data + increment count on the event document
+      const newJoinedUsers = [
+        ...existingUsers,
+        {
+          name: currentUser?.name || "",
+          email: myEmail,
+          image: currentUser?.image || "",
+          joinedAt: new Date().toISOString(),
+        },
+      ];
+      const patchRes = await fetch(
+        `http://localhost:5000/event/${currentEvent._id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            joinedUsers: newJoinedUsers,
+            joined: (freshEvent.joined || 0) + 1,
+          }),
+        }
+      );
+      if (!patchRes.ok) {
+        throw new Error(
+          `Join failed (${patchRes.status} ${patchRes.statusText}).`
+        );
+      }
+
+      // 3. Update UI from the confirmed write
+      setCurrentEvent({
+        ...currentEvent,
+        joined: (freshEvent.joined || 0) + 1,
+        joinedUsers: newJoinedUsers,
+      });
+      setJoinedOverride(true);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          `unitevia_joined_event_${currentEvent._id}`,
+          "true"
+        );
+      }
+
+      toast.add({
+        title: "Joined Successfully!",
+        description: `You have successfully joined "${currentEvent.title}". We look forward to seeing you there!`,
+        type: "success",
+      });
+    } catch (error) {
+      // No fake success on failure
+      toast.add({
+        title: "Join Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not join this event. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   const handleShare = async () => {
@@ -369,10 +506,11 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
                 <button
                   type="button"
                   onClick={handleJoin}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-7 py-3 text-sm font-bold text-[#032014] shadow-[0_0_20px_rgba(0,217,154,0.35)] transition hover:brightness-110 hover:shadow-[0_0_25px_rgba(0,217,154,0.5)] active:scale-95"
+                  disabled={isJoining}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00d99a] to-[#00f2aa] px-7 py-3 text-sm font-bold text-[#032014] shadow-[0_0_20px_rgba(0,217,154,0.35)] transition hover:brightness-110 hover:shadow-[0_0_25px_rgba(0,217,154,0.5)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Users className="size-4" />
-                  <span>Join Event</span>
+                  <span>{isJoining ? "Joining..." : "Join Event"}</span>
                 </button>
               )}
             </div>
