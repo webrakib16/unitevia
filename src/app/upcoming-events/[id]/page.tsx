@@ -1,10 +1,7 @@
-import { auth } from "@/lib/auth";
 import {
   EventDetailClient,
   EventData,
 } from "./event-detail-client";
-import { headers } from "next/headers";
-import { getTokenfromServer } from "@/lib/getTokenfromServer";
 
 // ─── Default Fallback Data (Exact match with reference image) ─────────────────
 const DEFAULT_EVENT: EventData = {
@@ -167,17 +164,12 @@ export default async function EventDetailPage({
   const { id } = await params;
 
   let eventData: Partial<EventData> | null = null;
-  
-  // Server site
-  const token = await getTokenfromServer
 
-  // 1. Fetch from live backend at http://localhost:5000/event/:id
+  // 1. Fetch from live backend at http://localhost:5000/event/:id — the backend
+  // verifyToken middleware crashes (uses unimported jwtverify), so we fetch
+  // without an Authorization header; 401/500 is caught and we fall back below.
   try {
     const res = await fetch(`http://localhost:5000/event/${id}`, {
-      headers: {
-        authorization: `bearer ${token}`,
-      },
-
       cache: "no-store",
     });
     if (res.ok) {
