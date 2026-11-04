@@ -23,7 +23,7 @@ import {
   Plus,
 } from "lucide-react";
 
-// ─── Category Illustrated SVGs matching the design system ─────────────────────
+// Category Illustrated SVGs matching the design system
 
 function BeanieIcon() {
   return (
