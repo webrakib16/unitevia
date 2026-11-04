@@ -101,7 +101,7 @@ export function Navbar() {
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
               isUpcomingActive
                 ? "border border-[#00d99a]/35 bg-[#062c1b] text-[#00d99a] shadow-[0_0_12px_rgba(0,217,154,0.18)]"
-                : "text-neutral-300 hover:text-white"
+                : "text-neutral-300 hover:text-[#00d99a] hover:bg-emerald-500/10 hover:shadow-[0_0_10px_rgba(0,217,154,0.15)]"
             }`}
           >
             Upcoming Events

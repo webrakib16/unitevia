@@ -16,7 +16,8 @@ export type EventCategory =
 
 export interface CommunityEvent {
   /** Stable unique id (backend-friendly: will map to Mongo _id later). */
-  id: number;
+  id: number | string;
+  _id?: string;
   /** URL-safe slug for a future /events/[slug] details page. */
   slug: string;
   title: string;
@@ -64,7 +65,7 @@ export const DEMO_EVENTS: CommunityEvent[] = [
     slug: "community-food-distribution-drive",
     title: "Community Food Distribution Drive",
     category: "Food Drive",
-    image: "/assets/events/community-food-distribution.jpg",
+    image: "/assets/banner.jpg",
     date: "2026-11-15",
     location: "Rajshahi, Bangladesh",
     description:
@@ -76,7 +77,7 @@ export const DEMO_EVENTS: CommunityEvent[] = [
     slug: "winter-clothes-distribution",
     title: "Winter Clothes Distribution",
     category: "Donation",
-    image: "/assets/events/winter-clothes-distribution.jpg",
+    image: "/assets/winter-clothing-distribution.jpg",
     date: "2026-11-28",
     location: "Mirpur 10, Dhaka",
     description:
@@ -88,7 +89,7 @@ export const DEMO_EVENTS: CommunityEvent[] = [
     slug: "dhanmondi-lake-clean-up-campaign",
     title: "Dhanmondi Lake Clean-Up Campaign",
     category: "Cleanup",
-    image: "/assets/events/lake-cleanup-campaign.jpg",
+    image: "/assets/community-cleanliness.jpg",
     date: "2026-12-05",
     location: "Dhanmondi, Dhaka",
     description:
@@ -100,7 +101,7 @@ export const DEMO_EVENTS: CommunityEvent[] = [
     slug: "urban-tree-plantation-drive",
     title: "Urban Tree Plantation Drive",
     category: "Plantation",
-    image: "/assets/events/tree-plantation-drive.jpg",
+    image: "/assets/green-initiatives.jpg",
     date: "2026-12-12",
     location: "University Area, Rajshahi",
     description:
@@ -112,7 +113,7 @@ export const DEMO_EVENTS: CommunityEvent[] = [
     slug: "blanket-distribution-for-the-needy",
     title: "Blanket Distribution for the Needy",
     category: "Donation",
-    image: "/assets/events/blanket-distribution.jpg",
+    image: "/assets/winter-clothing-distribution.jpg",
     date: "2026-12-19",
     location: "Mohammadpur, Dhaka",
     description:
@@ -124,7 +125,7 @@ export const DEMO_EVENTS: CommunityEvent[] = [
     slug: "community-free-health-eye-camp",
     title: "Community Free Health & Eye Camp",
     category: "Health Camp",
-    image: "/assets/events/health-eye-camp.jpg",
+    image: "/assets/blood-donation.jpg",
     date: "2026-12-26",
     location: "Charghat, Rajshahi",
     description:

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Camera,
   ChevronDown,
   ChevronUp,
   LogOut,
@@ -40,7 +41,9 @@ export function Profile({ user }: ProfileProps) {
   const [updateName, setUpdateName] = useState("");
   const [updateImage, setUpdateImage] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Close dropdown on outside click or Escape key
   useEffect(() => {
@@ -107,8 +110,33 @@ export function Profile({ user }: ProfileProps) {
   const openUpdateModal = () => {
     setUpdateName(user?.name?.trim() || "");
     setUpdateImage(user?.image || "");
+    setAvatarError(false);
     setIsOpen(false);
     setIsUpdateOpen(true);
+  };
+
+  // Handle image file selection → convert to base64 Data URL
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.add({
+        title: "Invalid File",
+        description: "Please select a valid image file.",
+        type: "error",
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setUpdateImage(reader.result);
+        setAvatarError(false);
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset so the same file can be re-selected if needed
+    e.target.value = "";
   };
 
   const handleSaveProfile = async () => {
@@ -332,17 +360,40 @@ export function Profile({ user }: ProfileProps) {
                   </button>
                 </div>
 
-                {/* Avatar preview */}
+                {/* Avatar preview — click to change photo */}
                 <div className="mt-5 flex items-center gap-3.5">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-full ring-2 ring-[#00d99a]/60 bg-emerald-950">
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="hidden"
+                    aria-hidden="true"
+                  />
+
+                  {/* Clickable avatar with camera overlay */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Click to change photo"
+                    className="group relative size-14 shrink-0 overflow-hidden rounded-full ring-2 ring-[#00d99a]/60 bg-emerald-950 focus:outline-none focus:ring-[#00d99a]"
+                  >
                     <Image
-                      src={updateImage || DEFAULT_AVATAR}
+                      src={avatarError ? DEFAULT_AVATAR : (updateImage || DEFAULT_AVATAR)}
                       alt="Profile preview"
                       fill
                       unoptimized
                       className="object-cover"
+                      onError={() => setAvatarError(true)}
                     />
-                  </div>
+                    {/* Camera overlay on hover */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/55 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Camera className="size-4 text-white" />
+                      <span className="text-[9px] font-semibold text-white leading-none">Change</span>
+                    </div>
+                  </button>
+
                   <p className="min-w-0 flex-1 truncate text-xs text-neutral-400">
                     {displayEmail}
                   </p>

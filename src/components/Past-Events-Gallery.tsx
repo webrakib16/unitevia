@@ -1,17 +1,58 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { EventsCarousel } from "@/components/Events-Carousel";
 import { DEMO_EVENTS, type CommunityEvent } from "@/data/events";
 
 /**
  * Section wrapper for the 3D event carousel.
- *
- * Static gallery: showcases photographs of community service events from the
- * static demo data source (src/data/events.ts) — no API integration.
+ * Loads live event data on initial mount, handling loading and error states,
+ * and falling back gracefully to validated demo events.
  */
 export function RecentEvents() {
-  const events: CommunityEvent[] = DEMO_EVENTS;
-  const loading = false;
+  const [events, setEvents] = useState<CommunityEvent[]>(DEMO_EVENTS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetch("http://localhost:5000/upcoming-events")
+      .then((res) => {
+        if (!res.ok) throw new Error("Network error fetching events");
+        return res.json();
+      })
+      .then((data) => {
+        if (!isMounted) return;
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: CommunityEvent[] = data.map((item, index) => ({
+            id: item._id || item.id || index + 1,
+            _id: String(item._id || item.id || `gallery-event-${index}`),
+            slug: item.slug || `event-${index}`,
+            title: item.title || "Community Event",
+            category: item.category || "Food Drive",
+            image: item.image || item.thumbnailUrl || "/assets/banner.jpg",
+            date: item.date || "Upcoming",
+            location: item.location || "Bangladesh",
+            description: item.description || "Community social initiative.",
+            organizer: item.organizer || item.organizerEmail || "Community Team",
+          }));
+          setEvents(mapped);
+        } else {
+          setEvents(DEMO_EVENTS);
+        }
+      })
+      .catch((err) => {
+        console.error("Gallery initial data fetch failed, using fallback:", err);
+        if (isMounted) setEvents(DEMO_EVENTS);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="relative overflow-hidden px-4 py-16 sm:px-6 md:py-24">

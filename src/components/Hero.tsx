@@ -109,7 +109,7 @@ export function Hero() {
           <div className="mt-7 flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
               href="/upcoming-events"
-              className="inline-flex items-center gap-2 rounded-full bg-[#00d99a] px-5 py-3 text-sm font-bold text-[#031a0f] transition hover:bg-[#00f2aa] active:scale-95 sm:px-6 sm:py-3.5"
+              className="inline-flex items-center gap-2 rounded-full bg-[#00d99a] px-5 py-3 text-sm font-bold text-[#031a0f] transition-all duration-300 hover:bg-[#00f2aa] hover:brightness-110 hover:shadow-[0_0_25px_rgba(0,217,154,0.45)] active:scale-95 sm:px-6 sm:py-3.5"
             >
               <CalendarDays className="size-4" />
               <span>Explore Upcoming Events</span>

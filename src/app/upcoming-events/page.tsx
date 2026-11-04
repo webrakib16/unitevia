@@ -137,6 +137,56 @@ function CategoryIcon({ category }: { category: string }) {
   return <Layers className="size-3.5 text-emerald-400" />;
 }
 
+// Helper to parse exact event date and time into a millisecond timestamp
+function getEventTimestamp(dateStr?: string, timeStr?: string): number | null {
+  if (!dateStr || dateStr === "Upcoming") return null;
+
+  let year = 0;
+  let month = 0;
+  let day = 0;
+
+  const isoDateOnly = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateOnly) {
+    year = Number(isoDateOnly[1]);
+    month = Number(isoDateOnly[2]) - 1;
+    day = Number(isoDateOnly[3]);
+  } else {
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return null;
+    if (dateStr.includes("T") && !timeStr) {
+      return parsed.getTime();
+    }
+    year = parsed.getFullYear();
+    month = parsed.getMonth();
+    day = parsed.getDate();
+  }
+
+  let hours = 23;
+  let minutes = 59;
+
+  if (timeStr) {
+    const t = timeStr.trim();
+    const match = t.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+    if (match) {
+      let h = Number(match[1]);
+      const m = Number(match[2]);
+      const mer = match[3]?.toUpperCase();
+      if (mer === "PM" && h < 12) h += 12;
+      else if (mer === "AM" && h === 12) h = 0;
+      hours = h;
+      minutes = m;
+    }
+  }
+
+  return new Date(year, month, day, hours, minutes, 0, 0).getTime();
+}
+
+function isFutureOrCurrentEvent(dateStr?: string, timeStr?: string): boolean {
+  const ts = getEventTimestamp(dateStr, timeStr);
+  if (ts === null) return true;
+  return ts >= Date.now();
+}
+
 const ITEMS_PER_PAGE = 12;
 
 export default function AllEventsPage() {
@@ -171,14 +221,10 @@ export default function AllEventsPage() {
             image: item.image || "/assets/events/blanket-distribution.jpg",
           }));
 
-          // Only upcoming events: exclude events whose date has passed
-          const startOfToday = new Date();
-          startOfToday.setHours(0, 0, 0, 0);
-          const upcomingOnly = mapped.filter((ev) => {
-            const evDate = new Date(ev.date);
-            if (Number.isNaN(evDate.getTime())) return true;
-            return evDate.getTime() >= startOfToday.getTime();
-          });
+          // Only upcoming events: strictly exclude events whose scheduled date and time have passed
+          const upcomingOnly = mapped.filter((ev) =>
+            isFutureOrCurrentEvent(ev.date, ev.time)
+          );
 
           setEvents(upcomingOnly);
         }
@@ -235,6 +281,11 @@ export default function AllEventsPage() {
 
   // Filter & Search Logic with exact matching for create-event category names
   const filteredEvents = events.filter((event) => {
+    // 0. Only show upcoming events (exclude past date & time)
+    if (!isFutureOrCurrentEvent(event.date, event.time)) {
+      return false;
+    }
+
     // 1. Search Query filter
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =

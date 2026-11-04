@@ -34,11 +34,56 @@ interface EventItem {
   _id?: string;
   title: string;
   category: string;
+  rawDate?: string;
   date: string;
   time: string;
   location: string;
   description: string;
   image: string;
+}
+
+function formatEventDateSafe(dateStr: string): string {
+  if (!dateStr) return "Upcoming Date";
+  if (/[a-zA-Z]/.test(dateStr)) return dateStr;
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, year, month, day] = match;
+    const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(d);
+  }
+  return dateStr;
+}
+
+function parseEventTimestamp(dateStr: string, timeStr?: string): number {
+  if (!dateStr) return Number.MAX_SAFE_INTEGER;
+  let hours = 0;
+  let minutes = 0;
+  if (timeStr) {
+    const t = timeStr.trim();
+    const ampmMatch = t.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+    if (ampmMatch) {
+      let h = Number(ampmMatch[1]);
+      const m = Number(ampmMatch[2]);
+      const mer = ampmMatch[3]?.toUpperCase();
+      if (mer === "PM" && h < 12) h += 12;
+      else if (mer === "AM" && h === 12) h = 0;
+      hours = h;
+      minutes = m;
+    }
+  }
+
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, y, m, d] = match;
+    return Date.UTC(Number(y), Number(m) - 1, Number(d), hours, minutes);
+  }
+  const parsed = new Date(dateStr).getTime();
+  return isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
 }
 
 
@@ -109,7 +154,7 @@ export default function JoinedEventsPage() {
   const [isFetching, setIsFetching] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  const [selectedSort, setSelectedSort] = useState("Latest");
+  const [selectedSort, setSelectedSort] = useState("Earliest");
   const [currentPage, setCurrentPage] = useState(1);
 
   // Private route guard: Redirect unauthenticated users to login
@@ -172,7 +217,8 @@ export default function JoinedEventsPage() {
             _id: String(item._id || item.id || `event-${index}`),
             title: item.title || "Community Event",
             category: item.category || "General",
-            date: item.date || "Upcoming",
+            rawDate: item.date || "",
+            date: formatEventDateSafe(item.date || ""),
             time: item.time || "10:00 AM",
             location: item.location || "Bangladesh",
             description: item.description || "Community event initiative.",
@@ -344,17 +390,15 @@ export default function JoinedEventsPage() {
     return matchesSearch && matchesCategory;
   });
 
-  // Sort — by event date (latest date first by default)
-  const parseDate = (val: string) => {
-    const t = new Date(val).getTime();
-    return Number.isNaN(t) ? 0 : t;
-  };
+  // Sort: automatically ascending by actual event date (Earliest to Latest)
   const sortedEvents = [...filteredEvents].sort((a, b) => {
-    if (selectedSort === "Oldest") {
-      return parseDate(a.date) - parseDate(b.date);
+    const timeA = parseEventTimestamp(a.rawDate || a.date, a.time);
+    const timeB = parseEventTimestamp(b.rawDate || b.date, b.time);
+    if (selectedSort === "Latest") {
+      return timeB - timeA;
     }
-    // Default: Latest
-    return parseDate(b.date) - parseDate(a.date);
+    // Default: Earliest to Latest (Ascending order)
+    return timeA - timeB;
   });
 
   // Pagination (6 items per page)
@@ -461,8 +505,8 @@ export default function JoinedEventsPage() {
                   onChange={handleSortChange}
                   className="h-11 w-full appearance-none rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-9 pr-8 text-xs font-medium text-white transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/30 sm:text-sm"
                 >
+                  <option value="Earliest" className="bg-[#06180f] text-white">Sort: Earliest</option>
                   <option value="Latest" className="bg-[#06180f] text-white">Sort: Latest</option>
-                  <option value="Oldest" className="bg-[#06180f] text-white">Sort: Oldest</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
               </div>

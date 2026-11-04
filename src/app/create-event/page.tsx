@@ -183,6 +183,17 @@ export default function AddEventPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
+  // Resolve creator email from session or localStorage
+  const resolveCreatorEmail = () => {
+    if (session?.user?.email) return session.user.email;
+    if (typeof window === "undefined") return "";
+    try {
+      return JSON.parse(localStorage.getItem("unitevia_user") || "null")?.email || "";
+    } catch {
+      return "";
+    }
+  };
+
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -194,20 +205,19 @@ export default function AddEventPage() {
     description: "",
   });
 
-  // Creator email comes from the logged-in user, never a manual input
-  const creatorEmail =
-    session?.user?.email ||
-    (() => {
-      if (typeof window === "undefined") return "";
-      try {
-        return JSON.parse(localStorage.getItem("unitevia_user") || "null")?.email || "";
-      } catch {
-        return "";
+  // Once session is ready, pre-fill email if the field is still empty
+  useEffect(() => {
+    if (!isPending) {
+      const autoEmail = resolveCreatorEmail();
+      if (autoEmail) {
+        setFormData((prev) => ({
+          ...prev,
+          email: prev.email || autoEmail,
+        }));
       }
-    })();
-
-  // Derived current email: uses user input if modified, otherwise defaults to logged-in email
-  const currentEmail = formData.email !== "" ? formData.email : creatorEmail;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPending, session?.user?.email]);
 
   const [dateError, setDateError] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -280,7 +290,7 @@ export default function AddEventPage() {
       return;
     }
 
-    const finalEmail = (currentEmail || "").trim();
+    const finalEmail = (formData.email || "").trim();
     if (!finalEmail) {
       toast.add({
         title: "Email Required",
@@ -576,7 +586,7 @@ export default function AddEventPage() {
                       name="email"
                       type="email"
                       required
-                      value={currentEmail}
+                      value={formData.email}
                       onChange={handleChange}
                       placeholder="Enter contact email (e.g. you@example.com)"
                       className="h-11 w-full rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-10 pr-4 text-sm text-white placeholder:text-neutral-500 transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/40"

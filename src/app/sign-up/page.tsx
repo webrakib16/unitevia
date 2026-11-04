@@ -31,6 +31,7 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Password validation rules
   const hasUppercase = /[A-Z]/.test(password);
@@ -93,6 +94,28 @@ export default function SignUpPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+
+  // Google sign up
+  const handleGoogleSignUp = async () => {
+    try {
+      setGoogleLoading(true);
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/",
+      });
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to initiate Google sign in.";
+      toast.add({
+        title: "Google Sign Up Failed",
+        description: errorMessage,
+        type: "error",
+      });
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -392,10 +415,12 @@ export default function SignUpPage() {
                   <div className="h-px flex-1 bg-emerald-500/20" />
                 </div>
 
-                {/* 8. Continue with Google Button (UI design only) */}
+                {/* 8. Continue with Google Button */}
                 <button
+                  onClick={handleGoogleSignUp}
                   type="button"
-                  className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-emerald-500/30 bg-[#051c11]/80 text-sm font-medium text-white shadow-sm transition hover:border-emerald-400 hover:bg-[#08291a] active:scale-95"
+                  disabled={loading || googleLoading}
+                  className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-emerald-500/30 bg-[#051c11]/80 text-sm font-medium text-white shadow-sm transition hover:border-emerald-400 hover:bg-[#08291a] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <svg className="size-5" viewBox="0 0 24 24" aria-hidden="true">
                     <path
@@ -415,7 +440,7 @@ export default function SignUpPage() {
                       d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                     />
                   </svg>
-                  <span>Continue with Google</span>
+                  <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
                 </button>
               </form>
 

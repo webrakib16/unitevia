@@ -39,6 +39,7 @@ interface EventItem {
   title: string;
   category: string;
   date: string;
+  rawDate?: string;
   time: string;
   location: string;
   description: string;
@@ -46,6 +47,43 @@ interface EventItem {
   joined?: number;
   /** Creator email stored on the event document by Create Event. */
   email?: string;
+}
+
+function formatEventDateSafe(dateStr: string): string {
+  if (!dateStr) return "Upcoming Date";
+  if (/[a-zA-Z]/.test(dateStr)) return dateStr;
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, year, month, day] = match;
+    const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(d);
+  }
+  return dateStr;
+}
+
+function parseEventTimestamp(dateStr: string, timeStr?: string): number {
+  if (!dateStr) return Number.MAX_SAFE_INTEGER;
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, y, m, d] = match;
+    let hours = 0;
+    let minutes = 0;
+    if (timeStr) {
+      const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})/);
+      if (timeMatch) {
+        hours = Number(timeMatch[1]);
+        minutes = Number(timeMatch[2]);
+      }
+    }
+    return Date.UTC(Number(y), Number(m) - 1, Number(d), hours, minutes);
+  }
+  const parsed = new Date(dateStr).getTime();
+  return isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
 }
 
 
@@ -116,7 +154,7 @@ export default function ManageEventsPage() {
   const [isFetching, setIsFetching] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  const [selectedSort, setSelectedSort] = useState("Latest");
+  const [selectedSort, setSelectedSort] = useState("Earliest");
   const [currentPage, setCurrentPage] = useState(1);
 
   // Edit and Delete modal states
@@ -184,7 +222,8 @@ export default function ManageEventsPage() {
               _id: String(item._id || item.id || `event-${index}`),
               title: item.title || "Community Event",
               category: item.category || "General",
-              date: item.date || "Upcoming",
+              rawDate: item.date || "",
+              date: formatEventDateSafe(item.date || ""),
               time: item.time || "10:00 AM",
               location: item.location || "Bangladesh",
               description: item.description || "Community event initiative.",
@@ -268,13 +307,15 @@ export default function ManageEventsPage() {
     return matchesSearch && matchesCategory;
   });
 
-  // Sort
+  // Sort: automatically ascending by actual event date (Earliest to Latest)
   const sortedEvents = [...filteredEvents].sort((a, b) => {
-    if (selectedSort === "Oldest") {
-      return a.id.localeCompare(b.id);
+    const timeA = parseEventTimestamp(a.rawDate || a.date, a.time);
+    const timeB = parseEventTimestamp(b.rawDate || b.date, b.time);
+    if (selectedSort === "Latest") {
+      return timeB - timeA;
     }
-    // Default: Latest
-    return b.id.localeCompare(a.id);
+    // Default: Earliest to Latest (Ascending order)
+    return timeA - timeB;
   });
 
   // Pagination (6 items per page)
@@ -456,8 +497,8 @@ export default function ManageEventsPage() {
                   onChange={handleSortChange}
                   className="h-11 w-full appearance-none rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-9 pr-8 text-xs font-medium text-white transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/30 sm:text-sm"
                 >
+                  <option value="Earliest" className="bg-[#06180f] text-white">Sort: Earliest</option>
                   <option value="Latest" className="bg-[#06180f] text-white">Sort: Latest</option>
-                  <option value="Oldest" className="bg-[#06180f] text-white">Sort: Oldest</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
               </div>
@@ -543,7 +584,7 @@ export default function ManageEventsPage() {
                 <div className="flex items-center gap-2">
                   {/* View */}
                   <Link
-                    href={`/upcoming-events/${ev.id}`}
+                    href={`/upcoming-events/${ev._id || ev.id}?from=manage-events`}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-[#082416]/70 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-emerald-400 hover:bg-[#0a311e]"
                   >
                     <Eye className="size-3.5 text-emerald-400" />

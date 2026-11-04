@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   EventDetailClient,
   EventData,
@@ -228,5 +229,15 @@ export default async function EventDetailPage({
     thumbnailUrl: eventData?.thumbnailUrl,
   };
 
-  return <EventDetailClient event={event} />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#031109] text-white">
+          <div className="size-10 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+        </div>
+      }
+    >
+      <EventDetailClient event={event} />
+    </Suspense>
+  );
 }

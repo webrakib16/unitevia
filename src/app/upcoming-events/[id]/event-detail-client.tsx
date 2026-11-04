@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
 import { getTokenfromClient } from "@/lib/getTokenfromClient";
@@ -39,12 +39,15 @@ export interface EventData {
   image?: string;
   thumbnailUrl?: string;
   /** Users who joined this event, persisted in the backend event document. */
-  joinedUsers?: Array<{
-    name?: string;
-    email?: string;
-    image?: string;
-    joinedAt?: string;
-  }>;
+  joinedUsers?: Array<
+    | string
+    | {
+        name?: string;
+        email?: string;
+        image?: string;
+        joinedAt?: string;
+      }
+  >;
 }
 
 function FoodBowlIcon() {
@@ -71,6 +74,20 @@ function FoodBowlIcon() {
 
 export function EventDetailClient({ event: initialEvent }: { event: EventData }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
+
+  let backHref = "/upcoming-events";
+  let backLabel = "Back to Upcoming Events";
+
+  if (from === "manage-events") {
+    backHref = "/manage-events";
+    backLabel = "Back to Manage Events";
+  } else if (from === "joined-events") {
+    backHref = "/joined-events";
+    backLabel = "Back to Joined Events";
+  }
+
   const [currentEvent, setCurrentEvent] = useState<EventData>(initialEvent);
   const [joinedOverride, setJoinedOverride] = useState(false);
 
@@ -106,13 +123,18 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
   const dbJoined =
     Boolean(myEmail) &&
     (currentEvent.joinedUsers || []).some(
-      (u) => u?.email?.trim().toLowerCase() === myEmail
+      (u) =>
+        (typeof u === "string" ? u : u?.email)?.trim().toLowerCase() === myEmail
     );
 
   const isJoined = dbJoined || joinedOverride;
   const volunteersCount = currentEvent.joined || 0;
 
   const handleJoin = async () => {
+    // 1. Prevent repeated clicks while processing
+    if (isJoining) return;
+
+    // 2. Prevent duplicate join if already joined in UI state
     if (isJoined) {
       toast.add({
         title: "Already Joined",
@@ -122,7 +144,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       return;
     }
 
-    // Must be logged in to join
+    // 3. Must be logged in to join
     if (!myEmail) {
       toast.add({
         title: "Login Required",
@@ -133,7 +155,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       return;
     }
 
-    // Validate that the event has a valid MongoDB ObjectId
+    // 4. Validate that the event has a valid MongoDB ObjectId
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(currentEvent._id);
     if (!isValidObjectId) {
       toast.add({
@@ -147,11 +169,38 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
     setIsJoining(true);
 
     try {
-      const existingUsers = currentEvent.joinedUsers || [];
+      // 5. Check fresh existing joined-event data from backend before allowing another Join request
+      let freshJoinedUsers = currentEvent.joinedUsers || [];
+      let freshJoinedCount = currentEvent.joined || 0;
 
-      // Duplicate guard
-      if (existingUsers.some((u) => u?.email?.trim().toLowerCase() === myEmail)) {
+      try {
+        const freshRes = await fetch(`http://localhost:5000/event/${currentEvent._id}`);
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          if (Array.isArray(freshData?.joinedUsers)) {
+            freshJoinedUsers = freshData.joinedUsers;
+          }
+          if (typeof freshData?.joined === "number") {
+            freshJoinedCount = freshData.joined;
+          }
+        }
+      } catch {
+        // use local currentEvent data if fresh fetch fails
+      }
+
+      // Check whether user is already recorded in joinedUsers
+      const isAlreadyInList = freshJoinedUsers.some(
+        (u) =>
+          (typeof u === "string" ? u : u?.email)?.trim().toLowerCase() === myEmail
+      );
+
+      if (isAlreadyInList) {
         setJoinedOverride(true);
+        setCurrentEvent((prev) => ({
+          ...prev,
+          joined: freshJoinedCount,
+          joinedUsers: freshJoinedUsers,
+        }));
         toast.add({
           title: "Already Joined",
           description: `You have already joined "${currentEvent.title}".`,
@@ -161,7 +210,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       }
 
       const newJoinedUsers = [
-        ...existingUsers,
+        ...freshJoinedUsers,
         {
           name: currentUser?.name || "Community Volunteer",
           email: myEmail,
@@ -169,7 +218,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
           joinedAt: new Date().toISOString(),
         },
       ];
-      const newJoinedCount = (currentEvent.joined || 0) + 1;
+      const newJoinedCount = freshJoinedCount + 1;
 
       // Obtain JWT token from client
       const token = await getTokenfromClient();
@@ -277,11 +326,11 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
         {/* ── Top Header: Back Link ── */}
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link
-            href="/upcoming-events"
+            href={backHref}
             className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-[#051c11]/80 px-4 py-2 text-xs font-semibold text-white shadow-[0_0_15px_rgba(0,217,154,0.12)] backdrop-blur-md transition hover:border-emerald-400/60 hover:bg-[#072818]"
           >
             <ArrowLeft className="size-3.5 text-emerald-400" />
-            <span>Back to Upcoming Events</span>
+            <span>{backLabel}</span>
           </Link>
         </div>
 

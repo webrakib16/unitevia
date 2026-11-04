@@ -58,6 +58,25 @@ function safeFormatDate(dateStr: string) {
   return dateStr;
 }
 
+function CarouselImage({ src, alt, isActive }: { src: string; alt: string; isActive: boolean }) {
+  const [imgSrc, setImgSrc] = useState(src || "/assets/banner.jpg");
+
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      fill
+      unoptimized
+      sizes="(max-width: 639px) 90vw, 340px"
+      onError={() => setImgSrc("/assets/banner.jpg")}
+      className={cn(
+        "object-cover transition-opacity duration-500",
+        !isActive && "opacity-80",
+      )}
+    />
+  );
+}
+
 /** Placement for |offset| slots: 1 = beside the center, 2 = outer, 0 = center. */
 const SLOTS: Record<0 | 1 | 2, { x: number; rotateY: number; scale: number; opacity: number; zIndex: number }> = {
   0: { x: 0, rotateY: 0, scale: 1, opacity: 1, zIndex: 30 },
@@ -170,16 +189,10 @@ export function EventsCarousel({ events, loading = false }: EventsCarouselProps)
             >
               {/* Cover image */}
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-t-2xl">
-                <Image
-                  src={event.image || "/assets/events/blanket-distribution.jpg"}
+                <CarouselImage
+                  src={event.image || "/assets/banner.jpg"}
                   alt={event.title}
-                  fill
-                  unoptimized
-                  sizes="(max-width: 639px) 90vw, 340px"
-                  className={cn(
-                    "object-cover transition-opacity duration-500",
-                    !isActive && "opacity-80",
-                  )}
+                  isActive={isActive}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a130e] via-transparent to-transparent" />
                 {CategoryIcon && (
@@ -228,7 +241,7 @@ export function EventsCarousel({ events, loading = false }: EventsCarouselProps)
                   </p>
                   {isActive && (
                     <Link
-                      href={`/upcoming-events/${event.id}`}
+                      href={`/upcoming-events/${event._id || event.id}`}
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 px-4 py-1.5 text-xs font-semibold text-[#04150c] transition hover:brightness-110"
                     >
