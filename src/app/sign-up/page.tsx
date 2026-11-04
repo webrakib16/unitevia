@@ -98,7 +98,7 @@ export default function SignUpPage() {
   };
 
 
-  // Google sign up
+  // Google sign up.
   const handleGoogleSignUp = async () => {
     try {
       setGoogleLoading(true);
