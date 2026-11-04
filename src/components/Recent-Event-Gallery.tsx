@@ -176,7 +176,7 @@ export function RecentEventGallery() {
   // Fetch live backend events from MongoDB via Express API
   useEffect(() => {
     let isMounted = true;
-    fetch("http://localhost:5000/upcoming-events")
+    fetch("http://localhost:5000/upcoming-events?limit=6")
       .then((res) => {
         if (!res.ok) throw new Error("Network error");
         return res.json();
