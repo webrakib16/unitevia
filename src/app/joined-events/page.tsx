@@ -41,41 +41,7 @@ interface EventItem {
   image: string;
 }
 
-const INITIAL_DEMO_JOINED_EVENTS: EventItem[] = [
-  {
-    id: "joined-1",
-    _id: "joined-1",
-    title: "Winter Clothing Distribution Drive",
-    category: "Winter Clothing",
-    date: "Dec 20, 2026",
-    time: "10:00 AM",
-    location: "Rajshahi, Bangladesh",
-    description: "Distribute warm clothes to underprivileged people in our community...",
-    image: "/assets/upcoming-events/blanket-distribution.jpg",
-  },
-  {
-    id: "joined-2",
-    _id: "joined-2",
-    title: "Blood Donation Camp",
-    category: "Blood Donation",
-    date: "Dec 28, 2026",
-    time: "09:00 AM",
-    location: "Rajshahi College",
-    description: "A community blood donation program to support local hospitals...",
-    image: "/assets/events/health-eye-camp.jpg",
-  },
-  {
-    id: "joined-3",
-    _id: "joined-3",
-    title: "Education Support for Underprivileged Children",
-    category: "Education",
-    date: "Jan 05, 2027",
-    time: "02:00 PM",
-    location: "Chapainawabganj",
-    description: "Provide educational materials and support to deserving students...",
-    image: "/assets/events/winter-clothes-distribution.jpg",
-  },
-];
+
 
 function CategoryBadge({ category }: { category: string }) {
   const norm = category.toLowerCase();
@@ -139,7 +105,7 @@ export default function JoinedEventsPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
-  const [events, setEvents] = useState<EventItem[]>(INITIAL_DEMO_JOINED_EVENTS);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
@@ -164,36 +130,34 @@ export default function JoinedEventsPage() {
 
   // Fetch backend events and keep only those containing the logged-in user's
   // email in their joinedUsers array (persisted in the DB event document).
-  // LocalStorage join flags are no longer the source of truth.
   useEffect(() => {
     let isMounted = true;
+
+    if (isPending) return;
+
+    const stored = typeof window !== "undefined" ? localStorage.getItem("unitevia_user") : null;
+    let storedEmail = "";
+    try {
+      storedEmail = stored ? JSON.parse(stored)?.email || "" : "";
+    } catch {
+      storedEmail = "";
+    }
+    const userEmail = (session?.user?.email || storedEmail).trim().toLowerCase();
+
     fetch("http://localhost:5000/upcoming-events")
       .then((res) => {
-        if (!res.ok) throw new Error("Network error");
+        if (!res.ok) throw new Error("Network error fetching events");
         return res.json();
       })
       .then((data) => {
-        if (!isMounted || !Array.isArray(data)) return;
-
-        const stored = localStorage.getItem("unitevia_user");
-        let storedUser: { email?: string } | null = null;
-        try {
-          storedUser = stored ? JSON.parse(stored) : null;
-        } catch {
-          storedUser = null;
-        }
-        const userEmail = (
-          session?.user?.email ||
-          storedUser?.email ||
-          ""
-        )
-          .trim()
-          .toLowerCase();
+        if (!isMounted) return;
 
         if (!userEmail) {
           setEvents([]);
           return;
         }
+
+        if (!Array.isArray(data)) return;
 
         const userJoined: EventItem[] = data
           .filter(
@@ -218,7 +182,8 @@ export default function JoinedEventsPage() {
         setEvents(userJoined);
       })
       .catch((err) => {
-        console.log("Backend offline, using fallback joined events:", err?.message);
+        console.error("Joined events fetch failed:", err?.message);
+        if (isMounted) setEvents([]);
       })
       .finally(() => {
         if (isMounted) setIsFetching(false);
@@ -227,7 +192,7 @@ export default function JoinedEventsPage() {
     return () => {
       isMounted = false;
     };
-  }, [session?.user?.email]);
+  }, [session?.user?.email, isPending]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);

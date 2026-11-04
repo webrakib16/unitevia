@@ -48,41 +48,7 @@ interface EventItem {
   email?: string;
 }
 
-const INITIAL_DEMO_EVENTS: EventItem[] = [
-  {
-    id: "demo-1",
-    _id: "demo-1",
-    title: "Winter Clothing Distribution Drive",
-    category: "Winter Clothing",
-    date: "Dec 20, 2026",
-    time: "10:00 AM",
-    location: "Rajshahi, Bangladesh",
-    description: "Distribute warm clothes to underprivileged people in our community...",
-    image: "/assets/upcoming-events/blanket-distribution.jpg",
-  },
-  {
-    id: "demo-2",
-    _id: "demo-2",
-    title: "Blood Donation Camp",
-    category: "Blood Donation",
-    date: "Dec 28, 2026",
-    time: "09:00 AM",
-    location: "Rajshahi College",
-    description: "A community blood donation program to support local hospitals...",
-    image: "/assets/events/health-eye-camp.jpg",
-  },
-  {
-    id: "demo-3",
-    _id: "demo-3",
-    title: "Education Support for Underprivileged Children",
-    category: "Education",
-    date: "Jan 05, 2027",
-    time: "02:00 PM",
-    location: "Chapainawabganj",
-    description: "Provide educational materials and support to deserving students...",
-    image: "/assets/events/winter-clothes-distribution.jpg",
-  },
-];
+
 
 function CategoryBadge({ category }: { category: string }) {
   const norm = category.toLowerCase();
@@ -146,7 +112,7 @@ export default function ManageEventsPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
-  const [events, setEvents] = useState<EventItem[]>(INITIAL_DEMO_EVENTS);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
@@ -174,57 +140,72 @@ export default function ManageEventsPage() {
     }
   }, [isPending, session, router]);
 
-  // Fetch live backend events
+  // Fetch live backend events from MongoDB and filter strictly by creator email
   useEffect(() => {
     let isMounted = true;
+
+    // Do not attempt to filter before session check completes
+    if (isPending) return;
+
+    const stored = typeof window !== "undefined" ? localStorage.getItem("unitevia_user") : null;
+    let storedEmail = "";
+    try {
+      storedEmail = stored ? JSON.parse(stored)?.email || "" : "";
+    } catch {
+      storedEmail = "";
+    }
+    const userEmail = (session?.user?.email || storedEmail).trim().toLowerCase();
+
     fetch("http://localhost:5000/upcoming-events")
       .then((res) => {
-        if (!res.ok) throw new Error("Network error");
+        if (!res.ok) throw new Error("Network error fetching events");
         return res.json();
       })
       .then((data) => {
-        if (isMounted && Array.isArray(data)) {
-          const stored = localStorage.getItem("unitevia_user");
-          let storedUser: { email?: string } | null = null;
-          try {
-            storedUser = stored ? JSON.parse(stored) : null;
-          } catch {
-            storedUser = null;
-          }
-          const userEmail = (session?.user?.email || storedUser?.email || "")
-            .trim()
-            .toLowerCase();
+        if (!isMounted) return;
 
-          if (!userEmail) {
-            setEvents([]);
-            return;
-          }
+        if (!userEmail) {
+          setEvents([]);
+          return;
+        }
 
-          const mapped: EventItem[] = data.map((item, index) => ({
-            id: String(item._id || item.id || `event-${index}`),
-            _id: String(item._id || item.id || `event-${index}`),
-            title: item.title || "Community Event",
-            category: item.category || "General",
-            date: item.date || "Upcoming",
-            time: item.time || "10:00 AM",
-            location: item.location || "Bangladesh",
-            description: item.description || "Community event initiative.",
-            image: item.image || "/assets/events/blanket-distribution.jpg",
-            joined: item.joined || 0,
-            email: item.email || "",
-          }));
+        if (Array.isArray(data)) {
+          const mapped: EventItem[] = data.map((item, index) => {
+            const creatorEmail = (
+              item.email ||
+              item.creatorEmail ||
+              item.userEmail ||
+              item.organizerEmail ||
+              ""
+            ).trim().toLowerCase();
 
-          // Only show events created by the currently logged-in user
-          // (creator email is stored on the event document by Create Event)
-          setEvents(
-            mapped.filter(
-              (ev) => ev.email?.trim().toLowerCase() === userEmail
-            )
+            return {
+              id: String(item._id || item.id || `event-${index}`),
+              _id: String(item._id || item.id || `event-${index}`),
+              title: item.title || "Community Event",
+              category: item.category || "General",
+              date: item.date || "Upcoming",
+              time: item.time || "10:00 AM",
+              location: item.location || "Bangladesh",
+              description: item.description || "Community event initiative.",
+              image: item.image || "/assets/events/blanket-distribution.jpg",
+              joined: item.joined || 0,
+              email: creatorEmail,
+            };
+          });
+
+          // Strict user-wise filtering: show ONLY events created by this logged-in user
+          const userOnlyEvents = mapped.filter(
+            (ev) => Boolean(ev.email) && ev.email === userEmail
           );
+          setEvents(userOnlyEvents);
+        } else if (isMounted) {
+          setEvents([]);
         }
       })
       .catch((err) => {
-        console.log("Using initial demo events:", err?.message);
+        console.error("Manage events fetch failed:", err?.message);
+        if (isMounted) setEvents([]);
       })
       .finally(() => {
         if (isMounted) setIsFetching(false);
@@ -233,7 +214,7 @@ export default function ManageEventsPage() {
     return () => {
       isMounted = false;
     };
-  }, [session?.user?.email]);
+  }, [session?.user?.email, isPending]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);

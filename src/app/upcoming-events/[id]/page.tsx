@@ -165,15 +165,30 @@ export default async function EventDetailPage({
 
   let eventData: Partial<EventData> | null = null;
 
-  // 1. Fetch from live backend at http://localhost:5000/event/:id — the backend
-  // verifyToken middleware crashes (uses unimported jwtverify), so we fetch
-  // without an Authorization header; 401/500 is caught and we fall back below.
+  // 1. Fetch from live backend at http://localhost:5000/event/:id
   try {
     const res = await fetch(`http://localhost:5000/event/${id}`, {
       cache: "no-store",
     });
     if (res.ok) {
       eventData = (await res.json()) as Partial<EventData>;
+    } else {
+      // If /event/:id is protected or failed, fallback to the public /upcoming-events collection
+      const listRes = await fetch("http://localhost:5000/upcoming-events", {
+        cache: "no-store",
+      });
+      if (listRes.ok) {
+        const list = await listRes.json();
+        if (Array.isArray(list)) {
+          const match = list.find((item: { _id?: string; id?: string }) => {
+            const itemId = String(item._id || item.id || "");
+            return itemId === id;
+          });
+          if (match) {
+            eventData = match as Partial<EventData>;
+          }
+        }
+      }
     }
   } catch {
     console.log("Could not fetch from backend, using fallback data.");

@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
-import { EditEventDetails, type EditEventForm } from "@/components/EditEventDetails";
-import { DeleteEventDetails } from "@/components/DeleteEventDetails";
+import { getTokenfromClient } from "@/lib/getTokenfromClient";
 import {
   ArrowLeft,
   BookOpen,
@@ -17,9 +16,7 @@ import {
   Layers,
   Mail,
   MapPin,
-  Pencil,
   Share2,
-  Trash2,
   Users,
   Zap,
 } from "lucide-react";
@@ -77,83 +74,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
   const [currentEvent, setCurrentEvent] = useState<EventData>(initialEvent);
   const [joinedOverride, setJoinedOverride] = useState(false);
 
-  // Modal states
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
 
-  // Build initial form values from the current event (used by EditEventDetails)
-  const getEditFormValues = (): EditEventForm => ({
-    title: currentEvent.title,
-    category: currentEvent.category,
-    date: currentEvent.date,
-    time: currentEvent.time,
-    location: currentEvent.location,
-    thumbnailUrl: currentEvent.thumbnailUrl || currentEvent.image || "",
-    description: currentEvent.about || currentEvent.description,
-  });
-
-  // Handle Edit submission — called by EditEventDetails component
-  const handleSaveEdit = async (values: EditEventForm) => {
-    setIsUpdating(true);
-
-    const updatedData: EventData = {
-      ...currentEvent,
-      title: values.title.trim() || currentEvent.title,
-      category: values.category,
-      date: values.date.trim() || currentEvent.date,
-      time: values.time.trim() || currentEvent.time,
-      location: values.location.trim() || currentEvent.location,
-      description: values.description.trim() || currentEvent.description,
-      about: values.description.trim() || currentEvent.about,
-      thumbnailUrl: values.thumbnailUrl.trim() || currentEvent.thumbnailUrl,
-      image: values.thumbnailUrl.trim() || currentEvent.image,
-    };
-
-    try {
-      const response = await fetch(
-        `http://localhost:5000/event/${currentEvent._id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: updatedData.title,
-            category: updatedData.category,
-            date: updatedData.date,
-            time: updatedData.time,
-            location: updatedData.location,
-            description: updatedData.description,
-            image: updatedData.image,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Event update failed (${response.status} ${response.statusText}).`
-        );
-      }
-      setCurrentEvent(updatedData);
-      setIsEditModalOpen(false);
-      toast.add({
-        title: "Event Updated Successfully!",
-        description: `"${updatedData.title}" details have been updated.`,
-        type: "success",
-      });
-    } catch (error) {
-      toast.add({
-        title: "Event Update Failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Could not update this event. Please try again.",
-        type: "error",
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-   
   // Current logged-in user (session first, localStorage cache as fallback)
   const { data: session } = authClient.useSession();
   const [localUser, setLocalUser] = useState<{
@@ -181,32 +102,15 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
   const currentUser = session?.user || localUser;
   const myEmail = currentUser?.email?.trim().toLowerCase() || null;
 
-  // Subscribe to localStorage join flags (used only as an instant UI cache; the
-  // source of truth for joining is joinedUsers persisted on the event document)
-  const isCachedJoined = useSyncExternalStore(
-    (callback) => {
-      window.addEventListener("storage", callback);
-      return () => window.removeEventListener("storage", callback);
-    },
-    () => {
-      if (typeof window === "undefined") return false;
-      return (
-        localStorage.getItem(`unitevia_joined_event_${currentEvent._id}`) ===
-        "true"
-      );
-    },
-    () => false
-  );
-
+  // Source of truth for joined state: MongoDB document's joinedUsers array
   const dbJoined =
-    !!myEmail &&
+    Boolean(myEmail) &&
     (currentEvent.joinedUsers || []).some(
       (u) => u?.email?.trim().toLowerCase() === myEmail
     );
 
-  const isJoined = dbJoined || isCachedJoined || joinedOverride;
-  const volunteersCount =
-    (currentEvent.joined || 0) + (!dbJoined && (isCachedJoined || joinedOverride) ? 1 : 0);
+  const isJoined = dbJoined || joinedOverride;
+  const volunteersCount = currentEvent.joined || 0;
 
   const handleJoin = async () => {
     if (isJoined) {
@@ -229,19 +133,24 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       return;
     }
 
+    // Validate that the event has a valid MongoDB ObjectId
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(currentEvent._id);
+    if (!isValidObjectId) {
+      toast.add({
+        title: "Demo Event",
+        description: "This is a static reference event and cannot be saved to MongoDB. Please join a real event created on the platform.",
+        type: "error",
+      });
+      return;
+    }
+
     setIsJoining(true);
 
     try {
-      // Build the updated joinedUsers list from current in-memory state
-      // (avoids calling the protected GET /event/:id which returns 500 due to
-      // the backend verifyToken middleware using unimported jwtverify/createRemoteJWKSet)
       const existingUsers = currentEvent.joinedUsers || [];
 
-      // Duplicate guard from in-memory state
+      // Duplicate guard
       if (existingUsers.some((u) => u?.email?.trim().toLowerCase() === myEmail)) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(`unitevia_joined_event_${currentEvent._id}`, "true");
-        }
         setJoinedOverride(true);
         toast.add({
           title: "Already Joined",
@@ -254,7 +163,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       const newJoinedUsers = [
         ...existingUsers,
         {
-          name: currentUser?.name || "",
+          name: currentUser?.name || "Community Volunteer",
           email: myEmail,
           image: currentUser?.image || "",
           joinedAt: new Date().toISOString(),
@@ -262,32 +171,42 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       ];
       const newJoinedCount = (currentEvent.joined || 0) + 1;
 
-      // Try to persist to backend via PATCH (no Authorization header so the
-      // broken verifyToken returns 401 rather than 500 — we treat both as a
-      // non-fatal backend-unavailable condition and proceed with optimistic UI)
-      try {
-        await fetch(`http://localhost:5000/event/${currentEvent._id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            joinedUsers: newJoinedUsers,
-            joined: newJoinedCount,
-          }),
-        });
-      } catch {
-        // Backend unreachable — continue with optimistic local state
+      // Obtain JWT token from client
+      const token = await getTokenfromClient();
+
+      // Persist join to MongoDB via PATCH /event/:id
+      const patchRes = await fetch(`http://localhost:5000/event/${currentEvent._id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          joinedUsers: newJoinedUsers,
+          joined: newJoinedCount,
+        }),
+      });
+
+      if (!patchRes.ok) {
+        let errMsg = "";
+        try {
+          const errData = await patchRes.json();
+          errMsg = errData?.msg || errData?.message || "";
+        } catch {
+          errMsg = await patchRes.text().catch(() => "");
+        }
+        throw new Error(
+          errMsg || `Join request failed (${patchRes.status} ${patchRes.statusText}).`
+        );
       }
 
-      // Update UI optimistically regardless of backend response
-      setCurrentEvent({
-        ...currentEvent,
+      // Success toast appears ONLY after confirmed database persistence
+      setCurrentEvent((prev) => ({
+        ...prev,
         joined: newJoinedCount,
         joinedUsers: newJoinedUsers,
-      });
+      }));
       setJoinedOverride(true);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`unitevia_joined_event_${currentEvent._id}`, "true");
-      }
 
       toast.add({
         title: "Joined Successfully!",
@@ -355,8 +274,8 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       <div className="pointer-events-none absolute right-[6%] bottom-[20%] size-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
 
       <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
-        {/* ── Top Header: Back Link + Edit & Delete Action Buttons ── */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        {/* ── Top Header: Back Link ── */}
+        <div className="mb-6 flex items-center justify-between gap-4">
           <Link
             href="/upcoming-events"
             className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-[#051c11]/80 px-4 py-2 text-xs font-semibold text-white shadow-[0_0_15px_rgba(0,217,154,0.12)] backdrop-blur-md transition hover:border-emerald-400/60 hover:bg-[#072818]"
@@ -364,27 +283,6 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
             <ArrowLeft className="size-3.5 text-emerald-400" />
             <span>Back to Upcoming Events</span>
           </Link>
-
-          {/* Action Group: Edit & Delete Buttons */}
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setIsEditModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-[#051c11]/85 px-4 py-2 text-xs font-semibold text-emerald-300 shadow-[0_0_15px_rgba(0,217,154,0.1)] backdrop-blur-md transition hover:border-emerald-400 hover:bg-[#072d1a] hover:text-white"
-            >
-              <Pencil className="size-3.5 text-[#00d99a]" />
-              <span>Edit Event</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/35 bg-[#170609]/85 px-4 py-2 text-xs font-semibold text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.1)] backdrop-blur-md transition hover:border-rose-400/70 hover:bg-[#26090e] hover:text-rose-300"
-            >
-              <Trash2 className="size-3.5 text-rose-400" />
-              <span>Delete Event</span>
-            </button>
-          </div>
         </div>
 
         {/* ── 1. Top Hero Card ── */}
@@ -708,25 +606,6 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
           </div>
         </div>
       </main>
-
-      {/* ════════ EDIT EVENT MODAL — using EditEventDetails component ════════ */}
-      {isEditModalOpen && (
-        <EditEventDetails
-          initialValues={getEditFormValues()}
-          isSaving={isUpdating}
-          onSave={handleSaveEdit}
-          onClose={() => setIsEditModalOpen(false)}
-        />
-      )}
-
-      {/* ════════ DELETE EVENT MODAL — using DeleteEventDetails component ════════ */}
-      <DeleteEventDetails
-        isOpen={isDeleteModalOpen}
-        eventId={currentEvent._id}
-        eventTitle={currentEvent.title}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onSuccess={() => router.push("/upcoming-events")}
-      />
     </div>
   );
 }

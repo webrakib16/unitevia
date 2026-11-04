@@ -189,6 +189,7 @@ export default function AddEventPage() {
     date: "",
     time: "",
     location: "",
+    email: "",
     image: "",
     description: "",
   });
@@ -204,6 +205,9 @@ export default function AddEventPage() {
         return "";
       }
     })();
+
+  // Derived current email: uses user input if modified, otherwise defaults to logged-in email
+  const currentEmail = formData.email !== "" ? formData.email : creatorEmail;
 
   const [dateError, setDateError] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -276,6 +280,16 @@ export default function AddEventPage() {
       return;
     }
 
+    const finalEmail = (currentEmail || "").trim();
+    if (!finalEmail) {
+      toast.add({
+        title: "Email Required",
+        description: "Please provide a valid contact email address.",
+        type: "error",
+      });
+      return;
+    }
+
     setDateError("");
     setIsSubmitting(true);
     
@@ -291,8 +305,9 @@ export default function AddEventPage() {
         },
         body: JSON.stringify({
           ...formData,
-          // Persist the creator's logged-in email with the event data
-          email: creatorEmail,
+          email: finalEmail,
+          creatorEmail: finalEmail,
+          userEmail: finalEmail,
         }),
       });
       if (!res.ok) {
@@ -549,13 +564,24 @@ export default function AddEventPage() {
                   </div>
                 </div>
 
-                {/* Email note (creator email is taken from the logged-in account) */}
-                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-[#031109]/90 px-3.5 py-2.5">
-                  <Mail className="size-4 shrink-0 text-[#00d99a]" />
-                  <p className="truncate text-xs text-neutral-400">
-                    Creator email:{" "}
-                    <span className="font-medium text-white">{creatorEmail || "—"}</span>
-                  </p>
+                {/* Email */}
+                <div>
+                  <label htmlFor="email" className="mb-2 block text-xs font-medium text-white sm:text-sm">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <Mail className="pointer-events-none absolute left-3.5 size-4 text-neutral-400" />
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      value={currentEmail}
+                      onChange={handleChange}
+                      placeholder="Enter contact email (e.g. you@example.com)"
+                      className="h-11 w-full rounded-xl border border-emerald-500/25 bg-[#031109]/90 pl-10 pr-4 text-sm text-white placeholder:text-neutral-500 transition focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/40"
+                    />
+                  </div>
                 </div>
 
                 {/* Thumbnail Image URL */}
