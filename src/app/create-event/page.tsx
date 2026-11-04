@@ -205,19 +205,19 @@ export default function AddEventPage() {
     description: "",
   });
 
-  // Once session is ready, pre-fill email if the field is still empty
-  useEffect(() => {
-    if (!isPending) {
-      const autoEmail = resolveCreatorEmail();
-      if (autoEmail) {
-        setFormData((prev) => ({
-          ...prev,
-          email: prev.email || autoEmail,
-        }));
-      }
+  // Prefill when the session becomes ready, without setting state in an effect.
+  const [emailPrefillKey, setEmailPrefillKey] = useState<string | null>(null);
+  const currentEmailPrefillKey = `${isPending}:${session?.user?.email ?? ""}`;
+  if (!isPending && emailPrefillKey !== currentEmailPrefillKey) {
+    setEmailPrefillKey(currentEmailPrefillKey);
+    const autoEmail = resolveCreatorEmail();
+    if (autoEmail) {
+      setFormData((prev) => ({
+        ...prev,
+        email: prev.email || autoEmail,
+      }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPending, session?.user?.email]);
+  }
 
   const [dateError, setDateError] = useState("");
   const [submitted, setSubmitted] = useState(false);

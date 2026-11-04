@@ -169,23 +169,39 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
     setIsJoining(true);
 
     try {
-      // 5. Check fresh existing joined-event data from backend before allowing another Join request
+      // 5. Obtain JWT token from client
+      const token = await getTokenfromClient();
+
+      // 6. Use local event state directly — GET /event/:id requires verifyToken (backend protected).
+      //    The SSR page already pre-fetched and passed current joinedUsers via props, so local
+      //    state is already the latest snapshot.
       let freshJoinedUsers = currentEvent.joinedUsers || [];
       let freshJoinedCount = currentEvent.joined || 0;
 
-      try {
-        const freshRes = await fetch(`http://localhost:5000/event/${currentEvent._id}`);
-        if (freshRes.ok) {
-          const freshData = await freshRes.json();
-          if (Array.isArray(freshData?.joinedUsers)) {
-            freshJoinedUsers = freshData.joinedUsers;
+      // If local state has no joinedUsers data at all, do a quick fetch from public /upcoming-events
+      if (!Array.isArray(currentEvent.joinedUsers)) {
+        try {
+          const listRes = await fetch("http://localhost:5000/upcoming-events");
+          if (listRes.ok) {
+            const list = await listRes.json();
+            if (Array.isArray(list)) {
+              const matched = list.find((item: { _id?: string; id?: string }) => {
+                const itemId = String(item._id || item.id || "");
+                return itemId === String(currentEvent._id);
+              });
+              if (matched) {
+                if (Array.isArray(matched.joinedUsers)) {
+                  freshJoinedUsers = matched.joinedUsers;
+                }
+                if (typeof matched.joined === "number") {
+                  freshJoinedCount = matched.joined;
+                }
+              }
+            }
           }
-          if (typeof freshData?.joined === "number") {
-            freshJoinedCount = freshData.joined;
-          }
+        } catch {
+          // use local currentEvent data
         }
-      } catch {
-        // use local currentEvent data if fresh fetch fails
       }
 
       // Check whether user is already recorded in joinedUsers
@@ -219,9 +235,6 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
         },
       ];
       const newJoinedCount = freshJoinedCount + 1;
-
-      // Obtain JWT token from client
-      const token = await getTokenfromClient();
 
       // Persist join to MongoDB via PATCH /event/:id
       const patchRes = await fetch(`http://localhost:5000/event/${currentEvent._id}`, {

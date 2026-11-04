@@ -16,12 +16,12 @@ export function RecentEvents() {
   useEffect(() => {
     let isMounted = true;
 
-    fetch("http://localhost:5000/upcoming-events")
-      .then((res) => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/upcoming-events");
         if (!res.ok) throw new Error("Network error fetching events");
-        return res.json();
-      })
-      .then((data) => {
+        const data = await res.json();
+
         if (!isMounted) return;
         if (Array.isArray(data) && data.length > 0) {
           const mapped: CommunityEvent[] = data.map((item, index) => ({
@@ -36,18 +36,21 @@ export function RecentEvents() {
             description: item.description || "Community social initiative.",
             organizer: item.organizer || item.organizerEmail || "Community Team",
           }));
-          setEvents(mapped);
+          if (isMounted) setEvents(mapped);
         } else {
+          if (isMounted) setEvents(DEMO_EVENTS);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.log("Gallery initial data fetch failed, using fallback:", err instanceof Error ? err.message : String(err));
           setEvents(DEMO_EVENTS);
         }
-      })
-      .catch((err) => {
-        console.error("Gallery initial data fetch failed, using fallback:", err);
-        if (isMounted) setEvents(DEMO_EVENTS);
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) setLoading(false);
-      });
+      }
+    };
+
+    fetchEvents();
 
     return () => {
       isMounted = false;

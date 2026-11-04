@@ -48,7 +48,7 @@ const FALLBACK_REFERENCE_EVENTS: EventItem[] = [
     description:
       "Distribute warm clothes among underprivileged families in our local community.",
     joined: 0,
-    image: "/assets/upcoming-events/blanket-distribution.jpg",
+    image: "/assets/events/blanket-distribution.jpg",
   },
   {
     id: 2,

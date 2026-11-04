@@ -35,7 +35,7 @@ const DEFAULT_GALLERY_EVENTS: GalleryEvent[] = [
     date: "Sat, Dec 20, 2026",
     location: "Rajshahi, Bangladesh",
     description: "Distribute warm clothes to underprivileged people in our community.",
-    image: "/assets/upcoming-events/blanket-distribution.jpg",
+    image: "/assets/events/blanket-distribution.jpg",
   },
   {
     id: "2",
@@ -176,12 +176,13 @@ export function RecentEventGallery() {
   // Fetch live backend events from MongoDB via Express API
   useEffect(() => {
     let isMounted = true;
-    fetch("http://localhost:5000/upcoming-events?limit=6")
-      .then((res) => {
+
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/upcoming-events");
         if (!res.ok) throw new Error("Network error");
-        return res.json();
-      })
-      .then((data) => {
+        const data = await res.json();
+
         if (isMounted && Array.isArray(data) && data.length > 0) {
           // Keep only future events, show the 6 soonest upcoming by event date
           const startOfToday = new Date();
@@ -192,7 +193,6 @@ export function RecentEventGallery() {
               const d = new Date(item.date);
               return {
                 item,
-                // Unknown dates sort last
                 time: Number.isNaN(d.getTime())
                   ? Number.MAX_SAFE_INTEGER
                   : d.getTime(),
@@ -212,12 +212,17 @@ export function RecentEventGallery() {
             image: item.image || "/assets/events/blanket-distribution.jpg",
           }));
 
-          setEvents(mapped);
+          if (isMounted) setEvents(mapped);
         }
-      })
-      .catch((err) => {
-        console.log("Using default gallery events:", err?.message);
-      });
+      } catch (err) {
+        if (isMounted) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.log("Using reference events data:", msg);
+        }
+      }
+    };
+
+    fetchEvents();
 
     return () => {
       isMounted = false;

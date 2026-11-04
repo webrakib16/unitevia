@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { getTokenfromClient } from "@/lib/getTokenfromClient";
 import {
   ArrowUpDown,
   BookOpen,
@@ -40,6 +41,8 @@ interface EventItem {
   location: string;
   description: string;
   image: string;
+  joined?: number;
+  joinedUsers?: Array<string | { email?: string; [key: string]: unknown }>;
 }
 
 function formatEventDateSafe(dateStr: string): string {
@@ -156,6 +159,7 @@ export default function JoinedEventsPage() {
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedSort, setSelectedSort] = useState("Earliest");
   const [currentPage, setCurrentPage] = useState(1);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   // Private route guard: Redirect unauthenticated users to login
   useEffect(() => {
@@ -223,6 +227,8 @@ export default function JoinedEventsPage() {
             location: item.location || "Bangladesh",
             description: item.description || "Community event initiative.",
             image: item.image || "/assets/events/blanket-distribution.jpg",
+            joined: typeof item.joined === "number" ? item.joined : (item.joinedUsers || []).length,
+            joinedUsers: item.joinedUsers || [],
           }));
 
         setEvents(userJoined);
@@ -258,6 +264,8 @@ export default function JoinedEventsPage() {
   // Handle Cancel Participation — removes the user from joinedUsers via the
   // existing GET + PATCH endpoints, so the DB stays the source of truth.
   const handleCancelJoin = async (eventId: string, eventTitle: string) => {
+    if (cancellingId) return;
+
     const stored = localStorage.getItem("unitevia_user");
     let storedUser: { email?: string } | null = null;
     try {
@@ -278,32 +286,70 @@ export default function JoinedEventsPage() {
       return;
     }
 
+    setCancellingId(eventId);
+
     try {
-      // 1. Fetch the event's current joinedUsers
-      const freshRes = await fetch(`http://localhost:5000/event/${eventId}`);
-      if (!freshRes.ok) throw new Error("Network error");
-      const freshEvent = (await freshRes.json()) as {
-        joined?: number;
-        joinedUsers?: Array<{ email?: string }>;
-      };
+      const token = await getTokenfromClient();
+      let freshJoinedUsers: Array<string | { email?: string; [key: string]: unknown }> = [];
+      let freshJoinedCount = 0;
+      let foundEvent = false;
 
-      const remaining =
-        (freshEvent?.joinedUsers || []).filter(
-          (u) => u?.email?.trim().toLowerCase() !== userEmail
-        ) || [];
+      // 1. Fetch from public /upcoming-events (no auth required, always works)
+      try {
+        const allRes = await fetch("http://localhost:5000/upcoming-events");
+        if (allRes.ok) {
+          const allEvents = await allRes.json();
+          if (Array.isArray(allEvents)) {
+            const matched = allEvents.find(
+              (ev: { _id?: string; id?: string }) =>
+                String(ev._id || ev.id) === String(eventId)
+            );
+            if (matched) {
+              freshJoinedUsers = Array.isArray(matched.joinedUsers) ? matched.joinedUsers : [];
+              freshJoinedCount = typeof matched.joined === "number" ? matched.joined : freshJoinedUsers.length;
+              foundEvent = true;
+            }
+          }
+        }
+      } catch {
+        // Fallback to local state
+      }
 
-      // 2. Persist the updated list and count
+      // 2. Fallback to current local state if network fetch didn't yield the event
+      if (!foundEvent) {
+        const localEv = events.find((ev) => ev.id === eventId);
+        if (localEv) {
+          freshJoinedUsers = Array.isArray(localEv.joinedUsers) ? localEv.joinedUsers : [];
+          freshJoinedCount = typeof localEv.joined === "number" ? localEv.joined : freshJoinedUsers.length;
+        }
+      }
+
+      // Filter out this user's email from joinedUsers
+      const remaining = freshJoinedUsers.filter((u) => {
+        const email = (typeof u === "string" ? u : u?.email || "").trim().toLowerCase();
+        return email !== userEmail;
+      });
+
+      const newCount = Math.max(0, Math.min(freshJoinedCount - 1, remaining.length));
+
+      // 3. Persist the updated list and count to MongoDB via PATCH /event/:id
       const patchRes = await fetch(`http://localhost:5000/event/${eventId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           joinedUsers: remaining,
-          joined: Math.max(0, (freshEvent?.joined || 0) - 1),
+          joined: newCount,
         }),
       });
-      if (!patchRes.ok) throw new Error("Network error");
 
-      // 3. Update UI + localStorage cache
+      if (!patchRes.ok) {
+        throw new Error(`PATCH request failed (${patchRes.status} ${patchRes.statusText})`);
+      }
+
+      // 4. Update UI + localStorage cache
       setEvents((prev) => prev.filter((ev) => ev.id !== eventId));
       localStorage.removeItem(`unitevia_joined_event_${eventId}`);
 
@@ -312,13 +358,16 @@ export default function JoinedEventsPage() {
         description: `You have cancelled your participation in "${eventTitle}".`,
         type: "info",
       });
-    } catch {
+    } catch (err) {
+      console.error("Cancel participation failed:", err);
       toast.add({
         title: "Cancellation Failed",
         description:
           "Could not cancel your participation right now. Please try again.",
         type: "error",
       });
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -612,11 +661,12 @@ export default function JoinedEventsPage() {
                   {/* Cancel Join */}
                   <button
                     type="button"
+                    disabled={cancellingId === ev.id}
                     onClick={() => handleCancelJoin(ev.id, ev.title)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-[#280d0d]/70 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:border-red-400 hover:bg-[#381212]"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-[#280d0d]/70 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:border-red-400 hover:bg-[#381212] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Trash2 className="size-3.5 text-red-400" />
-                    <span>Cancel Join</span>
+                    <span>{cancellingId === ev.id ? "Cancelling..." : "Cancel Join"}</span>
                   </button>
                 </div>
               </div>

@@ -112,7 +112,7 @@ export function Navbar() {
             href="/upcoming-events"
             className="rounded-full px-4 py-1.5 text-sm font-medium text-neutral-300 transition hover:text-white"
           >
-            About
+            About Us
           </Link>
         </div>
 
