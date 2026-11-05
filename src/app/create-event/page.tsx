@@ -307,7 +307,7 @@ export default function AddEventPage() {
     const token = await getTokenfromClient()
 
     try {
-      const res = await fetch("http://localhost:5000/data-event", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/data-event`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

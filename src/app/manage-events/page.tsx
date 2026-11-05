@@ -194,7 +194,7 @@ export default function ManageEventsPage() {
     }
     const userEmail = (session?.user?.email || storedEmail).trim().toLowerCase();
 
-    fetch("http://localhost:5000/upcoming-events")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`)
       .then((res) => {
         if (!res.ok) throw new Error("Network error fetching events");
         return res.json();
@@ -332,7 +332,7 @@ export default function ManageEventsPage() {
     const token = await getTokenfromClient()
 
     try {
-      const res = await fetch(`http://localhost:5000/event/${editingEvent.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${editingEvent.id}`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",

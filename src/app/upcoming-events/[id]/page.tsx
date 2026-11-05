@@ -168,14 +168,14 @@ export default async function EventDetailPage({
 
   // 1. Fetch from live backend at http://localhost:5000/event/:id
   try {
-    const res = await fetch(`http://localhost:5000/event/${id}`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${id}`, {
       cache: "no-store",
     });
     if (res.ok) {
       eventData = (await res.json()) as Partial<EventData>;
     } else {
       // If /event/:id is protected or failed, fallback to the public /upcoming-events collection
-      const listRes = await fetch("http://localhost:5000/upcoming-events", {
+      const listRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`, {
         cache: "no-store",
       });
       if (listRes.ok) {

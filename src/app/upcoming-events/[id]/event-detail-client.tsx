@@ -157,6 +157,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
 
     // 4. Validate that the event has a valid MongoDB ObjectId
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(currentEvent._id);
+    console.log("Validation",isValidObjectId)
     if (!isValidObjectId) {
       toast.add({
         title: "Demo Event",
@@ -181,7 +182,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       // If local state has no joinedUsers data at all, do a quick fetch from public /upcoming-events
       if (!Array.isArray(currentEvent.joinedUsers)) {
         try {
-          const listRes = await fetch("http://localhost:5000/upcoming-events");
+          const listRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`);
           if (listRes.ok) {
             const list = await listRes.json();
             if (Array.isArray(list)) {
@@ -237,7 +238,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventData })
       const newJoinedCount = freshJoinedCount + 1;
 
       // Persist join to MongoDB via PATCH /event/:id
-      const patchRes = await fetch(`http://localhost:5000/event/${currentEvent._id}`, {
+      const patchRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${currentEvent._id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

@@ -32,7 +32,7 @@ export function DeleteEventDetails({
     const token = await getTokenfromClient()
 
     try {
-      const res = await fetch(`http://localhost:5000/event/${eventId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${eventId}`, {
         method: "DELETE",
         headers: {
           "Content-type": "application/json",

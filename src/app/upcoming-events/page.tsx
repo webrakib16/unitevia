@@ -202,7 +202,7 @@ export default function AllEventsPage() {
   // Fetch live backend data from MongoDB via Express API
   useEffect(() => {
     let isMounted = true;
-    fetch("http://localhost:5000/upcoming-events")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`)
       .then((res) => {
         if (!res.ok) throw new Error("Network error");
         return res.json();

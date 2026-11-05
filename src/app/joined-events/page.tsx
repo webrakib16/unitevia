@@ -193,7 +193,7 @@ export default function JoinedEventsPage() {
     }
     const userEmail = (session?.user?.email || storedEmail).trim().toLowerCase();
 
-    fetch("http://localhost:5000/upcoming-events")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`)
       .then((res) => {
         if (!res.ok) throw new Error("Network error fetching events");
         return res.json();
@@ -296,7 +296,7 @@ export default function JoinedEventsPage() {
 
       // 1. Fetch from public /upcoming-events (no auth required, always works)
       try {
-        const allRes = await fetch("http://localhost:5000/upcoming-events");
+        const allRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`);
         if (allRes.ok) {
           const allEvents = await allRes.json();
           if (Array.isArray(allEvents)) {
@@ -333,7 +333,7 @@ export default function JoinedEventsPage() {
       const newCount = Math.max(0, Math.min(freshJoinedCount - 1, remaining.length));
 
       // 3. Persist the updated list and count to MongoDB via PATCH /event/:id
-      const patchRes = await fetch(`http://localhost:5000/event/${eventId}`, {
+      const patchRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${eventId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

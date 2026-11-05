@@ -18,7 +18,7 @@ export function RecentEvents() {
 
     const fetchEvents = async () => {
       try {
-        const res = await fetch("http://localhost:5000/upcoming-events");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`);
         if (!res.ok) throw new Error("Network error fetching events");
         const data = await res.json();
 

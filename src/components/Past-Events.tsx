@@ -18,7 +18,7 @@ export function RecentEvents() {
   useEffect(() => {
     let isMounted = true;
 
-    fetch("http://localhost:5000/upcoming-events")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/upcoming-events`)
       .then((res) => {
         if (!res.ok) throw new Error("Network response was not ok");
         return res.json();
